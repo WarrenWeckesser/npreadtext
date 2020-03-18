@@ -11,7 +11,7 @@ def configuration(parent_package='', top_path=None):
     cfiles = ['_readtextmodule.c', 'analyze.c', 'type_inference.c',
               'rows.c', 'tokenize.c',
               'conversions.c', 'str_to.c', 'str_to_double.c', 'pow10table.c',
-              'stream_file.c']
+              'stream_file.c', 'stream_python_file_by_line.c']
     config.add_extension('readtextstream._readtextmodule',
                          sources=[path.join('src', t) for t in cfiles])
     return config

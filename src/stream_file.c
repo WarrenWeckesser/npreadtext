@@ -1,3 +1,14 @@
+//
+// stream_file.c
+//
+// The public functions defined in this file are
+//
+//     stream *stream_file(FILE *f, int buffer_size)
+//     stream *stream_file_from_filename(char *filename, int buffer_size)
+//
+// The functions accept a C FILE object or a filename, respectively, and
+// create a stream that can be used by the text file reader.
+//
 
 #include <stdio.h>
 #include <string.h>
@@ -301,6 +312,7 @@ stream *stream_file(FILE *f, int buffer_size)
     return strm;
 }
 
+
 stream *stream_file_from_filename(char *filename, int buffer_size)
 {
     FILE *fp;
@@ -312,36 +324,3 @@ stream *stream_file_from_filename(char *filename, int buffer_size)
 
     return stream_file(fp, buffer_size);    
 }
-
-
-#ifdef TEST_STREAM_FILE
-
-int main(int argc, char *argv[])
-{
-    stream *s;
-    int32_t c;
-    int charcount = 0;
-
-    if (argc != 2) {
-        fprintf(stderr, "use: main textfilename\n");
-        exit(-1);
-    }
-
-    s = stream_file_from_filename(argv[1], 1000);
-    if (s == NULL) {
-        fprintf(stderr, "stream_from_filename failed\n");
-        exit(-2);
-    }
-    while ((c = stream_fetch(s)) != STREAM_EOF) {
-        charcount += 1;
-        printf("%5d ", c);
-        if (charcount % 10 == 0) {
-            printf("\n");
-        }
-    }
-    stream_close(s, RESTORE_NOT);
-
-    return 0;
-}
-
-#endif

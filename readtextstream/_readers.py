@@ -1,17 +1,18 @@
 
 import numpy as np
-from ._readtextmodule import _readtext_from_filename
+from ._readtextmodule import (_readtext_from_filename,
+                              _readtext_from_file_object)
 
 
-def read_from_filename(filename, *, delimiter=',', comment='#', quote='"',
-                       decimal='.', sci='E', usecols=None):
+def read(file, *, delimiter=',', comment='#', quote='"',
+         decimal='.', sci='E', usecols=None):
     """
     Read a NumPy array from a text file.
 
     Parameters
     ----------
-    filename : str
-        The name of the file to be read.
+    file : str or file object
+        The filename or the file to be read.
     delimiter : str, optional
         Field delimiter of the fields in line of the file.
         Default is a comma, ','.
@@ -66,7 +67,13 @@ def read_from_filename(filename, *, delimiter=',', comment='#', quote='"',
         if usecols.ndim != 1:
             raise ValueError('usecols must be one-dimensional')
 
-    arr = _readtext_from_filename(filename, delimiter=delimiter, comment=comment,
-                                  quote=quote, decimal=decimal, sci=sci,
-                                  usecols=usecols)
+    if isinstance(file, str):
+        arr = _readtext_from_filename(file, delimiter=delimiter, comment=comment,
+                                      quote=quote, decimal=decimal, sci=sci,
+                                      usecols=usecols)
+    else:
+        # Assume file is a file object.
+        arr = _readtext_from_file_object(file, delimiter=delimiter, comment=comment,
+                                         quote=quote, decimal=decimal, sci=sci,
+                                         usecols=usecols)
     return arr
