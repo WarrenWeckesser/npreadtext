@@ -1,5 +1,6 @@
 
 import numpy as np
+from . import _flatten_dtype
 from ._readtextmodule import (_readtext_from_filename,
                               _readtext_from_file_object)
 
@@ -66,6 +67,11 @@ def read(file, *, delimiter=',', comment='#', quote='"',
         usecols = np.atleast_1d(np.array(usecols, dtype=np.int32))
         if usecols.ndim != 1:
             raise ValueError('usecols must be one-dimensional')
+
+    #if dtype is not None:
+    #    fmt = _flatten_dtype.flatten_dtype(dtype)
+    #else:
+    #    fmt = ''
 
     if isinstance(file, str):
         arr = _readtext_from_filename(file, delimiter=delimiter, comment=comment,

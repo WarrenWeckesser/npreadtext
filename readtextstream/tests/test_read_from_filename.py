@@ -7,38 +7,58 @@ from readtextstream import read
 
 @pytest.mark.parametrize('basename,delim', [('test1.csv', ','),
                                             ('test1.tsv', '\t')])
-def test1_read_from_filename1(basename, delim):
+def test1_read1(basename, delim):
     filename = path.join(path.dirname(__file__), 'data', basename)
-    a = read(filename, delimiter=delim)
     al = np.loadtxt(filename, delimiter=delim)
+
+    a = read(filename, delimiter=delim)
     assert_array_equal(a, al)
+
+    with open(filename, 'r') as f:
+        a = read(f, delimiter=delim)
+        assert_array_equal(a, al)
 
 
 @pytest.mark.parametrize('basename,sci', [('test1e.csv', 'E'),
                                           ('test1d.csv', 'D')])
-def test1_read_from_filename_sci(basename, sci):
+def test1_read_sci(basename, sci):
     filename = path.join(path.dirname(__file__), 'data', basename)
-    a = read(filename, sci=sci)
     filename_e = path.join(path.dirname(__file__), 'data', 'test1e.csv')
     al = np.loadtxt(filename_e, delimiter=',')
+
+    a = read(filename, sci=sci)
     assert_array_equal(a, al)
+
+    with open(filename, 'r') as f:
+        a = read(f, sci=sci)
+        assert_array_equal(a, al)
 
 
 @pytest.mark.parametrize('basename,delim', [('test1.csv', ','),
                                             ('test1.tsv', '\t')])
-def test1_read_from_filename_usecols(basename, delim):
+def test1_read_usecols(basename, delim):
     filename = path.join(path.dirname(__file__), 'data', basename)
-    a = read(filename, usecols=[0, 2], delimiter=delim)
     al = np.loadtxt(filename, delimiter=delim, usecols=[0, 2])
+
+    a = read(filename, usecols=[0, 2], delimiter=delim)
     assert_array_equal(a, al)
 
+    with open(filename, 'r') as f:
+        a = read(f, usecols=[0, 2], delimiter=delim)
+        assert_array_equal(a, al)
 
-def test1_read_from_filename_with_comment():
+
+def test1_read_with_comment():
     filename = path.join(path.dirname(__file__),
                          'data', 'test1_with_comments.csv')
-    a = read(filename, comment='#')
     al = np.loadtxt(filename, delimiter=',')
+
+    a = read(filename, comment='#')
     assert_array_equal(a, al)
+
+    with open(filename, 'r') as f:
+        a = read(f, comment='#')
+        assert_array_equal(a, al)
 
 
 def test_decimal_is_comma():

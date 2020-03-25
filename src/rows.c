@@ -18,7 +18,7 @@
 #include "error_types.h"
 #include "str_to.h"
 
-
+#define ROWS_PER_BLOCK 100
 
 //
 //  For now, a convenient way to print an error to the console.
@@ -63,34 +63,59 @@ void *read_rows(stream *s, int *nrows,
     char *data_ptr;
     int current_num_fields;
     char **result;
-    int size;
+    size_t rowsize;
+    size_t size;
+    size_t numblocks;
+    int current_block = 0;
+    bool use_blocks;
+    void **blocks;
+    size_t blocksize;
+    int max_block;
     int row_count;
     int j;
     char word_buffer[WORD_BUFFER_SIZE];
     int tok_error_type;
-    int error_occurred;
+    bool error_occurred;
 
     *p_error_type = 0;
     *p_error_lineno = 0;
 
-    //if (datetime_fmt == NULL || *datetime_fmt == '\0') {
-    //    datetime_fmt = "%Y-%m-%d %H:%M:%S";
-    //}
-
-    size = 0;
+    rowsize = 0;
     for (j = 0; j < num_field_types; ++j) {
-        size += field_types[j].itemsize;
+        rowsize += field_types[j].itemsize;
     }
-    size *= *nrows;
+    blocksize = rowsize * ROWS_PER_BLOCK;
 
-    if (data_array == NULL) {
-        data_array = malloc(size);
-        if (data_array == NULL) {
+    // max_block is the number of entries in the blocks array.
+    // This value is doubled when the row count exceeds
+    // max_block*ROWS_PER_BLOCK and the blocks array is reallocated.
+    max_block = 200;
+    use_blocks = false;
+    if (*nrows < 0) {
+        // Any negative value means "read the entire file".
+        // In this case, it is assumed that *data_array is NULL
+        // or not initialized. I.e. the value passed in is ignored,
+        // and instead is initialized to the first block.
+        use_blocks = true;
+        blocks = calloc(max_block, sizeof(void *));
+        if (blocks == NULL) {
             *p_error_type = ERROR_OUT_OF_MEMORY;
             return NULL;
         }
     }
-    data_ptr = data_array;
+    else {
+        // *nrows >= 0
+        // FIXME: Ensure that *nrows == 0 is handled correctly.
+        if (data_array == NULL) {
+            size = *nrows * rowsize;
+            data_array = malloc(size);
+            if (data_array == NULL) {
+                *p_error_type = ERROR_OUT_OF_MEMORY;
+                return NULL;
+            }
+        }
+        data_ptr = data_array;
+    }
 
     stream_skiplines(s, skiplines);
 
@@ -99,6 +124,10 @@ void *read_rows(stream *s, int *nrows,
         /* This is not treated as an error. The result should be an empty array. */
         *nrows = 0;
         //stream_close(s, RESTORE_FINAL);
+        if (use_blocks) {
+            free(blocks);
+        }
+        // FIXME: This is not correct when use_blocks is true.
         return data_ptr;
     }
 
@@ -108,10 +137,42 @@ void *read_rows(stream *s, int *nrows,
 
     row_count = 0;
     error_occurred = false;
-    while ((row_count < *nrows) &&
+    while (((*nrows < 0) || (row_count < *nrows)) &&
            (result = tokenize(s, word_buffer, WORD_BUFFER_SIZE, pconfig,
                               &current_num_fields, &tok_error_type)) != NULL) {
         int j, k;
+
+        if (use_blocks) {
+            int block_number = row_count / ROWS_PER_BLOCK;
+            int block_offset = row_count % ROWS_PER_BLOCK;
+            if (block_number >= max_block) {
+                // Reached the end of the array of block pointers,
+                // so reallocate with twice the number of entries.
+                void *new_blocks = realloc(blocks, 2*max_block*sizeof(void *));
+                if (new_blocks == NULL) {
+                    // FIXME: handle this allocation failure.
+                    return NULL;
+                }
+                blocks = new_blocks;
+                for (j = max_block; j < 2*max_block; ++j) {
+                    blocks[j] = NULL;
+                }
+                max_block = 2*max_block;
+            }
+            if (blocks[block_number] == NULL) {
+                // Haven't allocated this block yet...
+                blocks[block_number] = malloc(blocksize);
+                if (blocks[block_number] == NULL) {
+                    *p_error_type = ERROR_OUT_OF_MEMORY;
+                    for (j = 0; j < current_block; ++j) {
+                        free(blocks[current_block]);
+                    }
+                    free(blocks);
+                    return NULL;
+                }
+                data_ptr = blocks[current_block];
+            }
+        }
 
         for (j = 0; j < num_usecols; ++j) {
             int error = ERROR_OK;
@@ -161,7 +222,7 @@ void *read_rows(stream *s, int *nrows,
                 uint16_t x = (uint16_t) str_to_uint64(result[k], UINT16_MAX, &error);
                 _check_field_error(error, s, k, "uint16", result[k]);
                 *(uint16_t *) data_ptr = x;
-                data_ptr += field_types[j].itemsize;    
+                data_ptr += field_types[j].itemsize;
             }
             else if (typecode == 'i') {
                 int32_t x = (int32_t) str_to_int64(result[k], INT32_MIN, INT32_MAX, &error);
@@ -202,50 +263,6 @@ void *read_rows(stream *s, int *nrows,
                     *(double *) data_ptr = x;
                 data_ptr += field_types[j].itemsize;
             }
-            // else if (typecode == 'c' || typecode == 'z') {
-            //     // Convert to complex.
-            //     double x, y;
-            //     char decimal = pconfig->decimal;
-            //     char sci = pconfig->sci;
-            //     if ((*(result[k]) == '\0') || !to_complex(result[k], &x, &y, sci, decimal)) {
-            //         _check_field_error(error, s, k, "complex", result[k]);
-            //         x = NAN;
-            //         y = x;
-            //     }
-            //     if (typecode == 'c') {
-            //         *(float *) data_ptr = (float) x;
-            //         data_ptr += field_types[j].itemsize / 2;
-            //         *(float *) data_ptr = (float) y;
-            //     }
-            //     else {
-            //         *(double *) data_ptr = x;
-            //         data_ptr += field_types[j].itemsize / 2; 
-            //         *(double *) data_ptr = y;
-            //     }
-            //     data_ptr += field_types[j].itemsize / 2;
-            // }
-            // else if (typecode == 'U') {
-            //     // Datetime64, microseconds.
-            //     struct tm tm = {0,0,0,0,0,0,0,0,0};
-            //     time_t t;
-            //
-            //     if (strptime(result[k], datetime_fmt, &tm) == NULL) {
-            //         _check_field_error(error, s, k, "datetime", result[k]);
-            //         memset(data_ptr, 0, 8);
-            //     }
-            //     else {
-            //         tm.tm_isdst = -1;
-            //         t = mktime(&tm);
-            //         if (t == -1) {
-            //             _check_field_error(error, s, k, "datetime", result[k]);
-            //             memset(data_ptr, 0, 8);
-            //         }
-            //         else {
-            //             *(uint64_t *) data_ptr = (long long) (t - tz_offset) * 1000000L;
-            //         }
-            //     }
-            //     data_ptr += 8;
-            // }
             else {
                 // String
                 strncpy(data_ptr, result[k], field_types[j].itemsize);
@@ -260,6 +277,23 @@ void *read_rows(stream *s, int *nrows,
         }
 
         ++row_count;
+    }
+
+    if (use_blocks) {
+        size_t actual_size = row_count * rowsize;
+        int num_full_blocks = row_count / ROWS_PER_BLOCK;
+        int num_rows_last = row_count % ROWS_PER_BLOCK;
+        data_array = realloc(blocks[0], actual_size);
+        for (int j = 1; j < num_full_blocks; ++j) {
+            memcpy(data_array + j*blocksize, blocks[j], blocksize);
+            free(blocks[j]);
+        }
+        if ((num_full_blocks > 0) && (num_rows_last > 0)) {
+            memcpy(data_array + num_full_blocks*blocksize,
+                   blocks[num_full_blocks],
+                   num_rows_last*rowsize);
+            free(blocks[num_full_blocks]);
+        }
     }
 
     //stream_close(s, RESTORE_FINAL);

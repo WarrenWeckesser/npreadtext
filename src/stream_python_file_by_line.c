@@ -357,7 +357,7 @@ stream *stream_python_file_by_line(PyObject *obj)
     strm->stream_linenumber = &fb_line_number;
     strm->stream_tell = &fb_tell;
     strm->stream_seek = &fb_seek;
-    strm->stream_close = &stream_del;
+    strm->stream_close = &stream_del;  // FIXME: compiler warning
 
     return strm;
 
