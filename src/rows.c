@@ -17,8 +17,10 @@
 #include "rows.h"
 #include "error_types.h"
 #include "str_to.h"
+#include "blocks.h"
 
-#define ROWS_PER_BLOCK 100
+#define INITIAL_BLOCKS_TABLE_LENGTH 200
+#define ROWS_PER_BLOCK 500
 
 //
 //  For now, a convenient way to print an error to the console.
@@ -33,23 +35,62 @@ void _check_field_error(int error, stream *s, int col_index, char *typename, cha
     }
 }
 
+
+//
+// If num_field_types is not 1, actual_num_fields must equal num_field_types.
+//
+size_t compute_row_size(int actual_num_fields,
+                        int num_field_types, field_type *field_types)
+{
+    size_t row_size;
+
+    // rowsize is the number of bytes in each "row" of the array
+    // filled in by this function.
+    if (num_field_types == 1) {
+        row_size = actual_num_fields * field_types[0].itemsize;
+    }
+    else {
+        row_size = 0;
+        for (int k = 0; k < num_field_types; ++k) {
+            row_size += field_types[k].itemsize;
+        }
+    }
+    return row_size;
+}
+
+
 /*
  *  XXX Handle errors in any of the functions called by read_rows().
  *
- *  XXX Currently *nrows must be at least 1.
+ *  XXX Check handling of *nrows == 0.
  *
  *  Parameters
  *  ----------
- *  ...
- *  num_field_types : int
+ *  stream *s
+ *  int *nrows
+ *      On input, *nrows is the maximum number of rows to read.
+ *      If *nrows is positive, `data_array` must point to the block of data
+ *      where the data is to be stored.
+ *      If *nrows is negative, all the rows in the file should be read, and
+ *      the given value of `data_array` is ignored.  Data will be allocated
+ *      dynamically in this function.
+ *      On return, *nrows is the number of rows actually read from the file.
+ *  int num_field_types
  *      Number of field types (i.e. the number of fields).  This is the
  *      length of the array pointed to by field_types.
- *  ...
- *  usecols : int32_t *
+ *  field_type *field_types
+ *  parser_config *pconfig
+ *  int32_t *usecols
  *      Pointer to array of column indices to use.
  *      If NULL, use all the columns (and ignore `num_usecols`).
- *  num_usecols : int
+ *  int num_usecols
  *      Length of the array `usecols`.  Ignored if `usecols` is NULL.
+ *  int skiplines
+ *  void *data_array
+ *  int *num_cols
+ *      The actual number of columns (or fields) of the data being returned.
+ *  int *p_error_type
+ *  int *p_error_lineno
  */
 
 void *read_rows(stream *s, int *nrows,
@@ -58,21 +99,19 @@ void *read_rows(stream *s, int *nrows,
                 int32_t *usecols, int num_usecols,
                 int skiplines,
                 void *data_array,
+                int *num_cols,
                 int *p_error_type, int *p_error_lineno)
 {
     char *data_ptr;
     int current_num_fields;
     char **result;
-    size_t rowsize;
+    size_t row_size;
     size_t size;
-    size_t numblocks;
-    int current_block = 0;
+
     bool use_blocks;
-    void **blocks;
-    size_t blocksize;
-    int max_block;
+    blocks_data *blks = NULL;
+
     int row_count;
-    int j;
     char word_buffer[WORD_BUFFER_SIZE];
     int tok_error_type;
     bool error_occurred;
@@ -80,59 +119,22 @@ void *read_rows(stream *s, int *nrows,
     *p_error_type = 0;
     *p_error_lineno = 0;
 
-    rowsize = 0;
-    for (j = 0; j < num_field_types; ++j) {
-        rowsize += field_types[j].itemsize;
-    }
-    blocksize = rowsize * ROWS_PER_BLOCK;
-
-    // max_block is the number of entries in the blocks array.
-    // This value is doubled when the row count exceeds
-    // max_block*ROWS_PER_BLOCK and the blocks array is reallocated.
-    max_block = 200;
-    use_blocks = false;
-    if (*nrows < 0) {
-        // Any negative value means "read the entire file".
-        // In this case, it is assumed that *data_array is NULL
-        // or not initialized. I.e. the value passed in is ignored,
-        // and instead is initialized to the first block.
-        use_blocks = true;
-        blocks = calloc(max_block, sizeof(void *));
-        if (blocks == NULL) {
-            *p_error_type = ERROR_OUT_OF_MEMORY;
-            return NULL;
-        }
-    }
-    else {
-        // *nrows >= 0
-        // FIXME: Ensure that *nrows == 0 is handled correctly.
-        if (data_array == NULL) {
-            size = *nrows * rowsize;
-            data_array = malloc(size);
-            if (data_array == NULL) {
-                *p_error_type = ERROR_OUT_OF_MEMORY;
-                return NULL;
-            }
-        }
-        data_ptr = data_array;
-    }
+    int actual_num_fields = -1;
 
     stream_skiplines(s, skiplines);
 
     if (stream_peek(s) == STREAM_EOF) {
-        /* There were fewer lines in the file than skiplines. */
-        /* This is not treated as an error. The result should be an empty array. */
+        // There were fewer lines in the file than skiplines.
+        // This is not treated as an error. The result should be an
+        // empty array.
+        if (*nrows < 0) {
+            blocks_destroy(blks);
+        }
         *nrows = 0;
         //stream_close(s, RESTORE_FINAL);
-        if (use_blocks) {
-            free(blocks);
-        }
-        // FIXME: This is not correct when use_blocks is true.
-        return data_ptr;
-    }
 
-    if (usecols == NULL) {
-        num_usecols = num_field_types;
+        // FIXME: NULL is not correct!
+        return NULL;
     }
 
     row_count = 0;
@@ -142,41 +144,74 @@ void *read_rows(stream *s, int *nrows,
                               &current_num_fields, &tok_error_type)) != NULL) {
         int j, k;
 
-        if (use_blocks) {
-            int block_number = row_count / ROWS_PER_BLOCK;
-            int block_offset = row_count % ROWS_PER_BLOCK;
-            if (block_number >= max_block) {
-                // Reached the end of the array of block pointers,
-                // so reallocate with twice the number of entries.
-                void *new_blocks = realloc(blocks, 2*max_block*sizeof(void *));
-                if (new_blocks == NULL) {
-                    // FIXME: handle this allocation failure.
-                    return NULL;
-                }
-                blocks = new_blocks;
-                for (j = max_block; j < 2*max_block; ++j) {
-                    blocks[j] = NULL;
-                }
-                max_block = 2*max_block;
+        if (actual_num_fields == -1) {
+            // We've deferred some of the initialization tasks to here,
+            // because we've now read the first line, and we definitively
+            // know how many fields (i.e. columns) we will be processing.
+            if (num_field_types > 1) {
+                actual_num_fields = num_field_types;
             }
-            if (blocks[block_number] == NULL) {
-                // Haven't allocated this block yet...
-                blocks[block_number] = malloc(blocksize);
-                if (blocks[block_number] == NULL) {
+            else if (usecols != NULL) {
+                actual_num_fields = num_usecols;
+            }
+            else {
+                // num_field_types is 1.  (XXX Check that it can't be 0 or neg.)
+                // Set actual_num_fields to the number of fields found in the
+                // first line of data.
+                actual_num_fields = current_num_fields;
+            }
+            *num_cols = actual_num_fields;
+            row_size = compute_row_size(actual_num_fields,
+                                        num_field_types, field_types);
+
+            if (usecols == NULL) {
+                num_usecols = actual_num_fields;
+            }
+
+            use_blocks = false;
+            if (*nrows < 0) {
+                // Any negative value means "read the entire file".
+                // In this case, it is assumed that *data_array is NULL
+                // or not initialized. I.e. the value passed in is ignored,
+                // and instead is initialized to the first block.
+                use_blocks = true;
+                blks = blocks_init(row_size, ROWS_PER_BLOCK, INITIAL_BLOCKS_TABLE_LENGTH);
+                if (blks == NULL) {
+                    // XXX Check for other clean up that might be necessary.
                     *p_error_type = ERROR_OUT_OF_MEMORY;
-                    for (j = 0; j < current_block; ++j) {
-                        free(blocks[current_block]);
-                    }
-                    free(blocks);
                     return NULL;
                 }
-                data_ptr = blocks[current_block];
+            }
+            else {
+                // *nrows >= 0
+                // FIXME: Ensure that *nrows == 0 is handled correctly.
+                if (data_array == NULL) {
+                    // The number of rows to read was given, but a memory buffer
+                    // was not, so allocate one here.
+                    size = *nrows * row_size;
+                    data_array = malloc(size);
+                    if (data_array == NULL) {
+                        *p_error_type = ERROR_OUT_OF_MEMORY;
+                        return NULL;
+                    }
+                }
+                data_ptr = data_array;
+            }
+        }
+
+        if (use_blocks) {
+            data_ptr = blocks_get_row_ptr(blks, row_count);
+            if (data_ptr == NULL) {
+                blocks_destroy(blks);
+                *p_error_type = ERROR_OUT_OF_MEMORY;
+                return NULL;
             }
         }
 
         for (j = 0; j < num_usecols; ++j) {
             int error = ERROR_OK;
-            char typecode = field_types[j].typecode;
+            int f = (num_field_types == 1) ? 0 : j;
+            char typecode = field_types[f].typecode;
 
             /* k is the column index of the field in the file. */
             if (usecols == NULL) {
@@ -261,7 +296,7 @@ void *read_rows(stream *s, int *nrows,
                     *(float *) data_ptr = (float) x;
                 else
                     *(double *) data_ptr = x;
-                data_ptr += field_types[j].itemsize;
+                data_ptr += field_types[f].itemsize;
             }
             else {
                 // String
@@ -280,20 +315,9 @@ void *read_rows(stream *s, int *nrows,
     }
 
     if (use_blocks) {
-        size_t actual_size = row_count * rowsize;
-        int num_full_blocks = row_count / ROWS_PER_BLOCK;
-        int num_rows_last = row_count % ROWS_PER_BLOCK;
-        data_array = realloc(blocks[0], actual_size);
-        for (int j = 1; j < num_full_blocks; ++j) {
-            memcpy(data_array + j*blocksize, blocks[j], blocksize);
-            free(blocks[j]);
-        }
-        if ((num_full_blocks > 0) && (num_rows_last > 0)) {
-            memcpy(data_array + num_full_blocks*blocksize,
-                   blocks[num_full_blocks],
-                   num_rows_last*rowsize);
-            free(blocks[num_full_blocks]);
-        }
+        // Copy the blocks into a newly allocated contiguous array.
+        data_array = blocks_to_contiguous(blks, row_count);
+        blocks_destroy(blks);
     }
 
     //stream_close(s, RESTORE_FINAL);

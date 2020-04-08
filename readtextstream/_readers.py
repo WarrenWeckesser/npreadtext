@@ -6,7 +6,7 @@ from ._readtextmodule import (_readtext_from_filename,
 
 
 def read(file, *, delimiter=',', comment='#', quote='"',
-         decimal='.', sci='E', usecols=None):
+         decimal='.', sci='E', usecols=None, dtype=None):
     """
     Read a NumPy array from a text file.
 
@@ -33,6 +33,9 @@ def read(file, *, delimiter=',', comment='#', quote='"',
         A one-dimensional array of integer column numbers.  These are the
         columns from the file to be included in the array.  If this value
         is not given, all the columns are used.
+    dtype : numpy data type, optional
+        If not given, the data type is inferred from the values found
+        in the file.
 
     Returns
     -------
@@ -68,18 +71,30 @@ def read(file, *, delimiter=',', comment='#', quote='"',
         if usecols.ndim != 1:
             raise ValueError('usecols must be one-dimensional')
 
-    #if dtype is not None:
-    #    fmt = _flatten_dtype.flatten_dtype(dtype)
-    #else:
-    #    fmt = ''
+    # Compute `codes` and `sizes`.  These are derived from `dtype`, and we
+    # also pass `dtype` to the C function, so we're passing in redundant
+    # information.  This is because it is easier to write the code that
+    # creates `codes` and `sizes` using Python than C.
+    if dtype is not None:
+        codes, sizes = _flatten_dtype.flatten_dtype2(dtype)
+        if (len(codes) > 1 and usecols is not None and
+                len(codes) != len(usecols)):
+            raise ValueError(f"length of usecols ({len(usecols)}) and "
+                             f"number of fields in dtype ({len(codes)}) "
+                             "do not match.")
+    else:
+        codes = None
+        sizes = None
 
     if isinstance(file, str):
         arr = _readtext_from_filename(file, delimiter=delimiter, comment=comment,
                                       quote=quote, decimal=decimal, sci=sci,
-                                      usecols=usecols)
+                                      usecols=usecols,
+                                      dtype=dtype, codes=codes, sizes=sizes)
     else:
         # Assume file is a file object.
         arr = _readtext_from_file_object(file, delimiter=delimiter, comment=comment,
                                          quote=quote, decimal=decimal, sci=sci,
-                                         usecols=usecols)
+                                         usecols=usecols,
+                                         dtype=dtype, codes=codes, sizes=sizes)
     return arr

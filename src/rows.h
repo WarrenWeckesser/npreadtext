@@ -29,6 +29,7 @@ void *read_rows(stream *s, int *nrows,
                 int *usecols, int num_usecols,
                 int skiplines,
                 void *data_array,
+                int *num_cols,
                 int *p_error_type, int *p_error_lineno);
 
 #endif
