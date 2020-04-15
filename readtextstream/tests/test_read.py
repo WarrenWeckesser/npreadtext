@@ -5,10 +5,14 @@ from numpy.testing import assert_array_equal, assert_
 from readtextstream import read
 
 
+def _get_full_name(basename):
+    return path.join(path.dirname(__file__), 'data', basename)
+
+
 @pytest.mark.parametrize('basename,delim', [('test1.csv', ','),
                                             ('test1.tsv', '\t')])
 def test1_read1(basename, delim):
-    filename = path.join(path.dirname(__file__), 'data', basename)
+    filename = _get_full_name(basename)
     al = np.loadtxt(filename, delimiter=delim)
 
     a = read(filename, delimiter=delim)
@@ -49,8 +53,7 @@ def test1_read_usecols(basename, delim):
 
 
 def test1_read_with_comment():
-    filename = path.join(path.dirname(__file__),
-                         'data', 'test1_with_comments.csv')
+    filename = _get_full_name('test1_with_comments.csv')
     al = np.loadtxt(filename, delimiter=',')
 
     a = read(filename, comment='#')
@@ -73,8 +76,7 @@ def test_decimal_is_comma():
 
 
 def test_quoted_field():
-    filename = path.join(path.dirname(__file__),
-                         'data', 'quoted_field.csv')
+    filename = _get_full_name('quoted_field.csv')
     a = read(filename)
     expected_dtype = np.dtype([('f0', 'S8'), ('f1', np.float64)])
     assert_(a.dtype == expected_dtype)
