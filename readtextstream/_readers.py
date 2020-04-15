@@ -6,8 +6,18 @@ from ._readtextmodule import (_readtext_from_filename,
                               _readtext_from_file_object)
 
 
+def _check_nonneg_int(value, name="argument"):
+    try:
+        operator.index(value)
+    except TypeError:
+        raise TypeError(f"{name} must be an integer") from None
+    if value < 0:
+        raise ValueError(f"{name} must be nonnegative")
+
+
 def read(file, *, delimiter=',', comment='#', quote='"',
-         decimal='.', sci='E', usecols=None, skiprows=0, dtype=None):
+         decimal='.', sci='E', usecols=None, skiprows=0,
+         max_rows=None, dtype=None):
     """
     Read a NumPy array from a text file.
 
@@ -36,6 +46,9 @@ def read(file, *, delimiter=',', comment='#', quote='"',
         is not given, all the columns are used.
     skiprows : int, optional
         Number of lines to skip before interpreting the data in the file.
+    max_rows : int, optional
+        Maximum number of rows of data to read.  Default is to read the
+        entire file.
     dtype : numpy data type, optional
         If not given, the data type is inferred from the values found
         in the file.
@@ -74,12 +87,12 @@ def read(file, *, delimiter=',', comment='#', quote='"',
         if usecols.ndim != 1:
             raise ValueError('usecols must be one-dimensional')
 
-    try:
-        operator.index(skiprows)
-    except TypeError:
-        raise TypeError("skiprows must be an integer") from None
-    if skiprows < 0:
-        raise ValueError("skiprows must be nonnegative")
+    _check_nonneg_int(skiprows)
+    if max_rows is not None:
+        _check_nonneg_int(max_rows)
+    else:
+        # Passing -1 to the C code means "read the entire file".
+        max_rows = -1
 
     # Compute `codes` and `sizes`.  These are derived from `dtype`, and we
     # also pass `dtype` to the C function, so we're passing in redundant
@@ -100,11 +113,13 @@ def read(file, *, delimiter=',', comment='#', quote='"',
         arr = _readtext_from_filename(file, delimiter=delimiter, comment=comment,
                                       quote=quote, decimal=decimal, sci=sci,
                                       usecols=usecols, skiprows=skiprows,
+                                      max_rows=max_rows,
                                       dtype=dtype, codes=codes, sizes=sizes)
     else:
         # Assume file is a file object.
         arr = _readtext_from_file_object(file, delimiter=delimiter, comment=comment,
                                          quote=quote, decimal=decimal, sci=sci,
                                          usecols=usecols, skiprows=skiprows,
+                                         max_rows=max_rows,
                                          dtype=dtype, codes=codes, sizes=sizes)
     return arr

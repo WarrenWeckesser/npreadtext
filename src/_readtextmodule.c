@@ -41,7 +41,7 @@ raise_analyze_exception(int nrows, char *filename);
 //
 static PyObject *
 _readtext_from_stream(stream *s, char *filename, parser_config *pc,
-                      PyObject *usecols, int skiprows,
+                      PyObject *usecols, int skiprows, int max_rows,
                       PyObject *dtype, int num_dtype_fields, char *codes, int32_t *sizes)
 {
     PyObject *arr = NULL;
@@ -231,6 +231,7 @@ _readtext_from_filename(PyObject *self, PyObject *args, PyObject *kwargs)
 {
     static char *kwlist[] = {"filename", "delimiter", "comment", "quote",
                              "decimal", "sci", "usecols", "skiprows",
+                             "max_rows",
                              "dtype", "codes", "sizes", NULL};
     char *filename;
     char *delimiter = ",";
@@ -239,6 +240,7 @@ _readtext_from_filename(PyObject *self, PyObject *args, PyObject *kwargs)
     char *decimal = ".";
     char *sci = "E";
     int skiprows;
+    int max_rows;
 
     PyObject *usecols;
 
@@ -254,9 +256,10 @@ _readtext_from_filename(PyObject *self, PyObject *args, PyObject *kwargs)
     PyObject *arr = NULL;
     int num_dtype_fields;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|$sssssOiOOO", kwlist,
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|$sssssOiiOOO", kwlist,
                                      &filename, &delimiter, &comment, &quote,
                                      &decimal, &sci, &usecols, &skiprows,
+                                     &max_rows,
                                      &dtype, &codes, &sizes)) {
         return NULL;
     }
@@ -294,7 +297,7 @@ _readtext_from_filename(PyObject *self, PyObject *args, PyObject *kwargs)
         return NULL;
     }
 
-    arr = _readtext_from_stream(s, filename, &pc, usecols, skiprows,
+    arr = _readtext_from_stream(s, filename, &pc, usecols, skiprows, max_rows,
                                 dtype, num_dtype_fields, codes_ptr, sizes_ptr);
     stream_close(s, RESTORE_NOT);
     return arr;
@@ -306,6 +309,7 @@ _readtext_from_file_object(PyObject *self, PyObject *args, PyObject *kwargs)
 {
     static char *kwlist[] = {"file", "delimiter", "comment", "quote",
                              "decimal", "sci", "usecols", "skiprows",
+                             "max_rows",
                              "dtype", "codes", "sizes", NULL};
     PyObject *file;
     char *delimiter = ",";
@@ -314,6 +318,7 @@ _readtext_from_file_object(PyObject *self, PyObject *args, PyObject *kwargs)
     char *decimal = ".";
     char *sci = "E";
     int skiprows;
+    int max_rows;
     PyObject *usecols;
 
     PyObject *dtype;
@@ -327,9 +332,10 @@ _readtext_from_file_object(PyObject *self, PyObject *args, PyObject *kwargs)
     PyObject *arr = NULL;
     int num_dtype_fields;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|$sssssOiOOO", kwlist,
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|$sssssOiiOOO", kwlist,
                                      &file, &delimiter, &comment, &quote,
                                      &decimal, &sci, &usecols, &skiprows,
+                                     &max_rows,
                                      &dtype, &codes, &sizes)) {
         return NULL;
     }
@@ -367,7 +373,7 @@ _readtext_from_file_object(PyObject *self, PyObject *args, PyObject *kwargs)
         return NULL;
     }
 
-    arr = _readtext_from_stream(s, NULL, &pc, usecols, skiprows,
+    arr = _readtext_from_stream(s, NULL, &pc, usecols, skiprows, max_rows,
                                 dtype, num_dtype_fields, codes_ptr, sizes_ptr);
     stream_close(s, RESTORE_NOT);
     return arr;

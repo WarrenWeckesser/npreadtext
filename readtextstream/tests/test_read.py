@@ -107,7 +107,8 @@ def test_dtype_and_skiprows(explicit_dtype: bool, skiprows: int):
     assert_array_equal(a, expected[skiprows:])
 
 
+@pytest.mark.parametrize('param', ['skiprows', 'max_rows'])
 @pytest.mark.parametrize('badval, exc', [(-3, ValueError), (1.0, TypeError)])
-def test_bad_skiprows(badval, exc):
+def test_bad_nonneg_int(param, badval, exc):
     with pytest.raises(exc):
-        a = read('foo.bar', skiprows=badval)
+        a = read('foo.bar', **{param: badval})
