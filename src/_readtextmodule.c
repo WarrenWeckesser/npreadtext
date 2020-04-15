@@ -180,6 +180,9 @@ _readtext_from_stream(stream *s, char *filename, parser_config *pc,
         if (ndim == 2) {
             shape[1] = num_cols;
         }
+        // We have to INCREF dtype, because the Python caller owns a reference,
+        // and PyArray_NewFromDescr steals a reference to it.
+        Py_INCREF(dtype);
         // XXX Fix memory management - `result` was malloc'd.
         arr = PyArray_NewFromDescr(&PyArray_Type, (PyArray_Descr *) dtype,
                                    ndim, shape, NULL, result, 0, NULL);

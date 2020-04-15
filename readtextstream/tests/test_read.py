@@ -84,3 +84,23 @@ def test_quoted_field():
                          ('beta, x', 4.5),
                          ('gamma, x', 5.0)], dtype=expected_dtype)
     assert_array_equal(a, expected)
+
+
+@pytest.mark.parametrize('explicit_dtype', [False, True])
+def test_dtype1(explicit_dtype : bool):
+    filename = _get_full_name('mixed_types1.dat')
+
+    expected_dtype = np.dtype([('f0', np.uint16),
+                               ('f1', np.float64),
+                               ('f2', 'S7'),
+                               ('f3', np.int8)])
+    expected = np.array([(1000, 2.4, "alpha", -34),
+                         (2000, 3.1, "beta", 29),
+                         (3500, 9.9, "gamma", 120),
+                         (4090, 8.1, "delta", 0),
+                         (5001, 4.4, "epsilon", -99),
+                         (6543, 7.8, "omega", -1)], dtype=expected_dtype)
+
+    dt = expected_dtype if explicit_dtype else None
+    a = read(filename, quote="'", delimiter=';', dtype=dt)
+    assert_array_equal(a, expected)

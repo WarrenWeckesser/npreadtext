@@ -138,6 +138,8 @@ def flatten_dtype2(dt):
     codes = []
     sizes = []
     _flatten_dtype2(dt, codes, sizes)
+    # XXX Check convention for 's' vs 'S'
+    codes = [c if c != 's' else 'S' for c in codes]
     return np.array(codes, dtype='S1'), np.array(sizes, dtype=np.int32)
 
 
