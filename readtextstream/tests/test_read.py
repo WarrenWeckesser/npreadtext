@@ -87,7 +87,8 @@ def test_quoted_field():
 
 
 @pytest.mark.parametrize('explicit_dtype', [False, True])
-def test_dtype1(explicit_dtype : bool):
+@pytest.mark.parametrize('skiprows', [0, 1, 3])
+def test_dtype_and_skiprows(explicit_dtype: bool, skiprows: int):
     filename = _get_full_name('mixed_types1.dat')
 
     expected_dtype = np.dtype([('f0', np.uint16),
@@ -102,5 +103,11 @@ def test_dtype1(explicit_dtype : bool):
                          (6543, 7.8, "omega", -1)], dtype=expected_dtype)
 
     dt = expected_dtype if explicit_dtype else None
-    a = read(filename, quote="'", delimiter=';', dtype=dt)
-    assert_array_equal(a, expected)
+    a = read(filename, quote="'", delimiter=';', skiprows=skiprows, dtype=dt)
+    assert_array_equal(a, expected[skiprows:])
+
+
+@pytest.mark.parametrize('badval, exc', [(-3, ValueError), (1.0, TypeError)])
+def test_bad_skiprows(badval, exc):
+    with pytest.raises(exc):
+        a = read('foo.bar', skiprows=badval)
