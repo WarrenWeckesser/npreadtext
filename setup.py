@@ -6,7 +6,7 @@ def configuration(parent_package='', top_path=None):
     from numpy.distutils.misc_util import Configuration
 
     config = Configuration(None, parent_package, top_path)
-    #config.add_data_dir('tests')
+    # config.add_data_dir('tests')
     config.add_subpackage('readtextstream')
     cfiles = ['_readtextmodule.c', 'analyze.c', 'type_inference.c',
               'rows.c', 'tokenize.c',

@@ -119,14 +119,16 @@ def read(file, *, delimiter=',', comment='#', quote='"',
         sizes = None
 
     if isinstance(file, str):
-        arr = _readtext_from_filename(file, delimiter=delimiter, comment=comment,
+        arr = _readtext_from_filename(file, delimiter=delimiter,
+                                      comment=comment,
                                       quote=quote, decimal=decimal, sci=sci,
                                       usecols=usecols, skiprows=skiprows,
                                       max_rows=max_rows,
                                       dtype=dtype, codes=codes, sizes=sizes)
     else:
         # Assume file is a file object.
-        arr = _readtext_from_file_object(file, delimiter=delimiter, comment=comment,
+        arr = _readtext_from_file_object(file, delimiter=delimiter,
+                                         comment=comment,
                                          quote=quote, decimal=decimal, sci=sci,
                                          usecols=usecols, skiprows=skiprows,
                                          max_rows=max_rows,
