@@ -90,6 +90,9 @@ def read(file, *, delimiter=',', comment='#', quote='"',
     array([(1. , 10, b'alpha'), (2.3, 25, b'beta'), (4.5, 16, b'gamma')],
           dtype=[('f0', '<f8'), ('f1', 'u1'), ('f2', 'S5')])
     """
+    if dtype is not None and not isinstance(dtype, np.dtype):
+        dtype = np.dtype(dtype)
+
     if usecols is not None:
         usecols = np.atleast_1d(np.array(usecols, dtype=np.int32))
         if usecols.ndim != 1:

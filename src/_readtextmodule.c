@@ -171,15 +171,20 @@ _readtext_from_stream(stream *s, char *filename, parser_config *pc,
         // A dtype was given.
         // XXX Work in progress...
         int num_cols;
-        int ndim = homogeneous ? 2 : 1;
+        int ndim;
         int num_rows = nrows;
         void *result = read_rows(s, &num_rows, num_fields, ft, pc,
                                  cols, ncols, skiprows, NULL,
                                  &num_cols,
                                  &error_type, &error_lineno);
         shape[0] = num_rows;
-        if (ndim == 2) {
+        if (!PyDataType_ISEXTENDED(dtype)) {
+            ndim = 2;
             shape[1] = num_cols;
+        }
+        else {
+            ndim = 1;
+            shape[1] = 1;  // Not actually necessary to fill this in.
         }
         // We have to INCREF dtype, because the Python caller owns a reference,
         // and PyArray_NewFromDescr steals a reference to it.

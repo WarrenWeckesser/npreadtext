@@ -1,4 +1,5 @@
 from os import path
+from io import StringIO
 import pytest
 import numpy as np
 from numpy.testing import assert_array_equal, assert_
@@ -105,6 +106,20 @@ def test_dtype_and_skiprows(explicit_dtype: bool, skiprows: int):
     dt = expected_dtype if explicit_dtype else None
     a = read(filename, quote="'", delimiter=';', skiprows=skiprows, dtype=dt)
     assert_array_equal(a, expected[skiprows:])
+
+
+def test_structured_dtype_1():
+    dt = [("a", 'u1', 2), ("b", 'u1', 2)]
+    a = read(StringIO("0,1,2,3\n6,7,8,9\n"), dtype=dt)
+    expected = np.array([((0, 1), (2, 3)), ((6, 7), (8, 9))],
+                        dtype=dt)
+    assert_array_equal(a, expected)
+
+
+def test_structured_dtype_2():
+    dt = [("a", 'u1', (2, 2))]
+    a = read(StringIO("0 1 2 3"), delimiter=' ', dtype=dt)
+    assert_array_equal(a, np.array([(((0, 1), (2, 3)),)], dtype=dt))
 
 
 @pytest.mark.parametrize('param', ['skiprows', 'max_rows'])
