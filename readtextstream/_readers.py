@@ -17,7 +17,8 @@ def _check_nonneg_int(value, name="argument"):
 
 def read(file, *, delimiter=',', comment='#', quote='"',
          decimal='.', sci='E', usecols=None, skiprows=0,
-         max_rows=None, converters=None, ndmin=None, dtype=None):
+         max_rows=None, converters=None, ndmin=None, unpack=False,
+         dtype=None):
     """
     Read a NumPy array from a text file.
 
@@ -52,6 +53,10 @@ def read(file, *, delimiter=',', comment='#', quote='"',
     ndmin : int, optional
         Minimum dimension of the array returned.
         Allowed values are 0, 1 or 2.  Default is 0.
+    unpack : bool, optional
+        If True, the returned array is transposed, so that arguments may be
+        unpacked using ``x, y, z = read(...)``.  When used with a structured
+        data-type, arrays are returned for each field.  Default is False.
     dtype : numpy data type, optional
         If not given, the data type is inferred from the values found
         in the file.
@@ -148,4 +153,14 @@ def read(file, *, delimiter=',', comment='#', quote='"',
             elif ndmin == 2:
                 arr = np.atleast_2d(arr).T
 
-    return arr
+    if unpack:
+        # Handle unpack like np.loadtxt.
+        # XXX Check interaction with ndmin!
+        dt = arr.dtype
+        if dt.names is not None:
+            # For structured arrays, return an array for each field.
+            return [arr[field] for field in dt.names]
+        else:
+            return arr.T
+    else:
+        return arr

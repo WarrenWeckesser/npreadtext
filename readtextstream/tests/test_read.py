@@ -138,3 +138,30 @@ def test_ndmin_single_row_or_col(fn, shape):
 def test_bad_ndmin(badval):
     with pytest.raises(ValueError):
         read('foo.bar', ndmin=badval)
+
+
+def test_unpack_structured():
+    filename = _get_full_name('mixed_types1.dat')
+    expected_dtype = np.dtype([('f0', np.uint16),
+                               ('f1', np.float64),
+                               ('f2', 'S7'),
+                               ('f3', np.int8)])
+    expected = np.array([(1000, 2.4, "alpha", -34),
+                         (2000, 3.1, "beta", 29),
+                         (3500, 9.9, "gamma", 120),
+                         (4090, 8.1, "delta", 0),
+                         (5001, 4.4, "epsilon", -99),
+                         (6543, 7.8, "omega", -1)], dtype=expected_dtype)
+    a, b, c, d = read(filename, delimiter=';', quote="'", unpack=True)
+    assert_array_equal(a, expected['f0'])
+    assert_array_equal(b, expected['f1'])
+    assert_array_equal(c, expected['f2'])
+    assert_array_equal(d, expected['f3'])
+
+
+def test_unpack_array():
+    filename = _get_full_name('test1.csv')
+    a, b, c = read(filename, delimiter=',', unpack=True)
+    assert_array_equal(a, np.array([1.0, 4.0, 7.0, 0.0]))
+    assert_array_equal(b, np.array([2.0, 5.0, 8.0, 1.0]))
+    assert_array_equal(c, np.array([3.0, 6.0, 9.0, 2.0]))
