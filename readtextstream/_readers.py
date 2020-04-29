@@ -17,7 +17,7 @@ def _check_nonneg_int(value, name="argument"):
 
 def read(file, *, delimiter=',', comment='#', quote='"',
          decimal='.', sci='E', usecols=None, skiprows=0,
-         max_rows=None, dtype=None):
+         max_rows=None, converters=None, ndmin=None, dtype=None):
     """
     Read a NumPy array from a text file.
 
@@ -49,6 +49,9 @@ def read(file, *, delimiter=',', comment='#', quote='"',
     max_rows : int, optional
         Maximum number of rows of data to read.  Default is to read the
         entire file.
+    ndmin : int, optional
+        Minimum dimension of the array returned.
+        Allowed values are 0, 1 or 2.  Default is 0.
     dtype : numpy data type, optional
         If not given, the data type is inferred from the values found
         in the file.
@@ -87,6 +90,12 @@ def read(file, *, delimiter=',', comment='#', quote='"',
         if usecols.ndim != 1:
             raise ValueError('usecols must be one-dimensional')
 
+    if converters is not None:
+        raise ValueError("sorry, 'converters' is not implemented yet")
+
+    if ndmin not in [None, 0, 1, 2]:
+        raise ValueError(f'ndmin must be None, 0, 1, or 2; got {ndmin}')
+
     _check_nonneg_int(skiprows)
     if max_rows is not None:
         _check_nonneg_int(max_rows)
@@ -122,4 +131,19 @@ def read(file, *, delimiter=',', comment='#', quote='"',
                                          usecols=usecols, skiprows=skiprows,
                                          max_rows=max_rows,
                                          dtype=dtype, codes=codes, sizes=sizes)
+
+    if ndmin is not None:
+        # Handle non-None ndmin like np.loadtxt.  Might change this eventually?
+        # Tweak the size and shape of the arrays - remove extraneous dimensions
+        if arr.ndim > ndmin:
+            arr = np.squeeze(arr)
+        # and ensure we have the minimum number of dimensions asked for
+        # - has to be in this order for the odd case ndmin=1,
+        # X.squeeze().ndim=0
+        if arr.ndim < ndmin:
+            if ndmin == 1:
+                arr = np.atleast_1d(arr)
+            elif ndmin == 2:
+                arr = np.atleast_2d(arr).T
+
     return arr

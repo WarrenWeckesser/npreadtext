@@ -111,4 +111,30 @@ def test_dtype_and_skiprows(explicit_dtype: bool, skiprows: int):
 @pytest.mark.parametrize('badval, exc', [(-3, ValueError), (1.0, TypeError)])
 def test_bad_nonneg_int(param, badval, exc):
     with pytest.raises(exc):
-        a = read('foo.bar', **{param: badval})
+        read('foo.bar', **{param: badval})
+
+
+@pytest.mark.parametrize('fn,shape', [('onerow.txt', (1, 5)),
+                                      ('onecol.txt', (5, 1))])
+def test_ndmin_single_row_or_col(fn, shape):
+    filename = _get_full_name(fn)
+    data = [1, 2, 3, 4, 5]
+    arr2d = np.array(data).reshape(shape)
+
+    a = read(filename, delimiter=' ')
+    assert_array_equal(a, arr2d)
+
+    a = read(filename, delimiter=' ', ndmin=0)
+    assert_array_equal(a, data)
+
+    a = read(filename, delimiter=' ', ndmin=1)
+    assert_array_equal(a, data)
+
+    a = read(filename, delimiter=' ', ndmin=2)
+    assert_array_equal(a, arr2d)
+
+
+@pytest.mark.parametrize('badval', [-1, 3, "plate of shrimp"])
+def test_bad_ndmin(badval):
+    with pytest.raises(ValueError):
+        read('foo.bar', ndmin=badval)
