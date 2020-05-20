@@ -194,17 +194,30 @@ int32_t fb_next(void *fb)
  *  fb_skipline(void *fb)
  *
  *  Read bytes from the buffer until a newline or the end of the file is reached.
+ *
+ *  The return value is 0 if no errors occurred.
  */
 
 static
-void fb_skipline(void *fb)
+int32_t fb_skipline(void *fb)
 {
-    while (fb_next(fb) != '\n' && fb_next(fb) != STREAM_EOF) {
+    int32_t c;
+
+    c = fb_next(fb);
+    if (c == STREAM_ERROR) {
+        return c;
+    }
+    while (c != '\n' && c != STREAM_EOF) {
+        fb_fetch(fb);
+        c = fb_next(fb);
+        if (c == STREAM_ERROR) {
+            return c;
+        }
+    }
+    if (c == '\n') {
         fb_fetch(fb);
     }
-    if (fb_next(fb) == '\n') {
-        fb_fetch(fb);
-    }
+    return 0;
 }
 
 
@@ -213,18 +226,32 @@ void fb_skipline(void *fb)
  *
  *  Skip num_lines; calls fb_skipline(fb) num_lines times, or until the end of
  *  the file is reached.
+ *
+ *  The return value is 0 if no errors occurred.
  */
 
 static
-void fb_skiplines(void *fb, int num_lines)
+int32_t fb_skiplines(void *fb, int num_lines)
 {
+    int32_t status;
+    int32_t c;
+
     while (num_lines > 0) {
-        fb_skipline(fb);
-        if (fb_next(fb) == STREAM_EOF) {
+        status = fb_skipline(fb);
+        if (status != 0) {
+            return status;
+        }
+        c = fb_next(fb);
+        if (c == STREAM_EOF) {
             break;
+        }
+        if (c < 0) {
+            // Error
+            return c;
         }
         --num_lines;
     }
+    return 0;
 }
 
 // XXX Is long int really the correct type?
