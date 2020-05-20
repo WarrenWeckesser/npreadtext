@@ -15,8 +15,8 @@ typedef struct _stream {
     void *stream_data;
     int32_t (*stream_fetch)(void *sdata);
     int32_t (*stream_peek)(void *sdata);
-    void (*stream_skipline)(void *sdata);
-    void (*stream_skiplines)(void *sdata, int n);
+    int32_t (*stream_skipline)(void *sdata);
+    int32_t (*stream_skiplines)(void *sdata, int n);
     int (*stream_linenumber)(void *sdata);
     int (*stream_lineoffset)(void *sdata);
     long int (*stream_tell)(void *sdata);

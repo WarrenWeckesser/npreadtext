@@ -76,7 +76,7 @@ int32_t fb_line_number(void *fb)
  */
 
 static
-int _fb_load(void *fb)
+int32_t _fb_load(void *fb)
 {
     uint8_t *buffer = FB(fb)->buffer;
 
@@ -123,10 +123,14 @@ int _fb_load(void *fb)
 static
 int32_t fb_fetch(void *fb)
 {
+    int32_t status;
     int32_t c;
     uint8_t *buffer = FB(fb)->buffer;
   
-    _fb_load(fb);
+    status = _fb_load(fb);
+    if (status != 0) {
+        return status;
+    }
 
     if (FB(fb)->current_buffer_pos == FB(fb)->last_pos) {
         return STREAM_EOF;
@@ -182,17 +186,30 @@ int32_t fb_next(void *fb)
  *  fb_skipline(void *fb)
  *
  *  Read bytes from the buffer until a newline or the end of the file is reached.
+ *
+ *  The return value is 0 if no errors occurred.
  */
 
 static
-void fb_skipline(void *fb)
+int32_t fb_skipline(void *fb)
 {
-    while (fb_next(fb) != '\n' && fb_next(fb) != STREAM_EOF) {
+    int32_t c;
+
+    c = fb_next(fb);
+    if (c == STREAM_ERROR) {
+        return c;
+    }
+    while (c != '\n' && c != STREAM_EOF) {
+        fb_fetch(fb);
+        c = fb_next(fb);
+        if (c == STREAM_ERROR) {
+            return c;
+        }
+    }
+    if (c == '\n') {
         fb_fetch(fb);
     }
-    if (fb_next(fb) == '\n') {
-        fb_fetch(fb);
-    }
+    return 0;
 }
 
 
@@ -201,17 +218,31 @@ void fb_skipline(void *fb)
  *
  *  Skip num_lines; calls fb_skipline(fb) num_lines times, or until the end of
  *  the file is reached.
+ *
+ *  The return value is 0 if no errors occurred.
  */
 
-void fb_skiplines(void *fb, int num_lines)
+int32_t fb_skiplines(void *fb, int num_lines)
 {
+    int32_t status;
+    int32_t c;
+
     while (num_lines > 0) {
-        fb_skipline(fb);
-        if (fb_next(fb) == STREAM_EOF) {
+        status = fb_skipline(fb);
+        if (status != 0) {
+            return status;
+        }
+        c = fb_next(fb);
+        if (c == STREAM_EOF) {
             break;
+        }
+        if (c < 0) {
+            // Error
+            return c;
         }
         --num_lines;
     }
+    return 0;
 }
 
 long int fb_tell(void *fb)
@@ -294,6 +325,7 @@ stream *stream_file(FILE *f, int buffer_size)
     fb->buffer_size = buffer_size;
     fb->buffer = malloc(fb->buffer_size);
     if (fb->buffer == NULL) {
+        // FIXME: don't print to stderr!
         fprintf(stderr, "stream_file: malloc() failed.\n");
         free(fb);
         fb = NULL;
