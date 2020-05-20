@@ -237,7 +237,8 @@ _readtext_from_filename(PyObject *self, PyObject *args, PyObject *kwargs)
     static char *kwlist[] = {"filename", "delimiter", "comment", "quote",
                              "decimal", "sci", "usecols", "skiprows",
                              "max_rows",
-                             "dtype", "codes", "sizes", NULL};
+                             "dtype", "codes", "sizes",
+                             "encoding", NULL};
     char *filename;
     char *delimiter = ",";
     char *comment = "#";
@@ -252,6 +253,7 @@ _readtext_from_filename(PyObject *self, PyObject *args, PyObject *kwargs)
     PyObject *dtype;
     PyObject *codes;
     PyObject *sizes;
+    PyObject *encoding;
 
     char *codes_ptr = NULL;
     int32_t *sizes_ptr = NULL;
@@ -261,11 +263,11 @@ _readtext_from_filename(PyObject *self, PyObject *args, PyObject *kwargs)
     PyObject *arr = NULL;
     int num_dtype_fields;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|$sssssOiiOOO", kwlist,
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|$sssssOiiOOOO", kwlist,
                                      &filename, &delimiter, &comment, &quote,
                                      &decimal, &sci, &usecols, &skiprows,
                                      &max_rows,
-                                     &dtype, &codes, &sizes)) {
+                                     &dtype, &codes, &sizes, &encoding)) {
         return NULL;
     }
 
@@ -315,7 +317,8 @@ _readtext_from_file_object(PyObject *self, PyObject *args, PyObject *kwargs)
     static char *kwlist[] = {"file", "delimiter", "comment", "quote",
                              "decimal", "sci", "usecols", "skiprows",
                              "max_rows",
-                             "dtype", "codes", "sizes", NULL};
+                             "dtype", "codes", "sizes",
+                             "encoding", NULL};
     PyObject *file;
     char *delimiter = ",";
     char *comment = "#";
@@ -329,6 +332,7 @@ _readtext_from_file_object(PyObject *self, PyObject *args, PyObject *kwargs)
     PyObject *dtype;
     PyObject *codes;
     PyObject *sizes;
+    PyObject *encoding;
 
     char *codes_ptr = NULL;
     int32_t *sizes_ptr = NULL;
@@ -337,11 +341,13 @@ _readtext_from_file_object(PyObject *self, PyObject *args, PyObject *kwargs)
     PyObject *arr = NULL;
     int num_dtype_fields;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|$sssssOiiOOO", kwlist,
+    fprintf(stderr, "_readtext_from_file_object: starting\n");
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|$sssssOiiOOOO", kwlist,
                                      &file, &delimiter, &comment, &quote,
                                      &decimal, &sci, &usecols, &skiprows,
                                      &max_rows,
-                                     &dtype, &codes, &sizes)) {
+                                     &dtype, &codes, &sizes, &encoding)) {
         return NULL;
     }
 
@@ -372,7 +378,7 @@ _readtext_from_file_object(PyObject *self, PyObject *args, PyObject *kwargs)
         sizes_ptr = PyArray_DATA(sizes);
     }
 
-    stream *s = stream_python_file_by_line(file);
+    stream *s = stream_python_file_by_line(file, encoding);
     if (s == NULL) {
         PyErr_Format(PyExc_RuntimeError, "Unable to access the file.");
         return NULL;

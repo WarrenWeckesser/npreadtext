@@ -1,6 +1,10 @@
 
+import os
+import codecs
+from pathlib import Path
 import operator
 import numpy as np
+from numpy.lib import DataSource
 from . import _flatten_dtype
 from ._readtextmodule import (_readtext_from_filename,
                               _readtext_from_file_object)
@@ -18,7 +22,7 @@ def _check_nonneg_int(value, name="argument"):
 def read(file, *, delimiter=',', comment='#', quote='"',
          decimal='.', sci='E', usecols=None, skiprows=0,
          max_rows=None, converters=None, ndmin=None, unpack=False,
-         dtype=None):
+         dtype=None, encoding=None):
     """
     Read a NumPy array from a text file.
 
@@ -60,6 +64,8 @@ def read(file, *, delimiter=',', comment='#', quote='"',
     dtype : numpy data type, optional
         If not given, the data type is inferred from the values found
         in the file.
+    encoding : str, optional
+        Specifies the encoding of the input file.
 
     Returns
     -------
@@ -90,6 +96,11 @@ def read(file, *, delimiter=',', comment='#', quote='"',
     array([(1. , 10, b'alpha'), (2.3, 25, b'beta'), (4.5, 16, b'gamma')],
           dtype=[('f0', '<f8'), ('f1', 'u1'), ('f2', 'S5')])
     """
+    codec = None
+    if encoding is not None:
+        # This will raise a LookupError if the encoding is unknown.
+        codec = codecs.lookup(encoding)
+
     if dtype is not None and not isinstance(dtype, np.dtype):
         dtype = np.dtype(dtype)
 
@@ -126,21 +137,52 @@ def read(file, *, delimiter=',', comment='#', quote='"',
         codes = None
         sizes = None
 
+    # XXX Reorganize these nested ifs...
+    # XXX Not everything is handled correctly at the moment.
+    #     A Path could contain a .gz file, for example...
     if isinstance(file, str):
-        arr = _readtext_from_filename(file, delimiter=delimiter,
-                                      comment=comment,
-                                      quote=quote, decimal=decimal, sci=sci,
-                                      usecols=usecols, skiprows=skiprows,
-                                      max_rows=max_rows,
-                                      dtype=dtype, codes=codes, sizes=sizes)
+        fname, ext = os.path.splitext(file)
+        if ext not in ['.bz2', '.gz', '.xz', '.lzma'] and encoding is None:
+            arr = _readtext_from_filename(file, delimiter=delimiter,
+                                          comment=comment,
+                                          quote=quote, decimal=decimal, sci=sci,
+                                          usecols=usecols, skiprows=skiprows,
+                                          max_rows=max_rows,
+                                          dtype=dtype, codes=codes, sizes=sizes,
+                                          encoding=encoding)
+        else:
+            f = np.lib._datasource.open(fname, 'rt', encoding=encoding)
+            try:
+                enc = encoding.encode('ascii') if encoding is not None else None
+                arr = _readtext_from_file_object(f, delimiter=delimiter,
+                                                 comment=comment,
+                                                 quote=quote, decimal=decimal, sci=sci,
+                                                 usecols=usecols, skiprows=skiprows,
+                                                 max_rows=max_rows,
+                                                 dtype=dtype, codes=codes, sizes=sizes,
+                                                 encoding=enc)
+            finally:
+                f.close()
+    elif isinstance(file, Path):
+        with open(file, encoding=encoding) as f:
+            enc = encoding.encode('ascii') if encoding is not None else None
+            arr = _readtext_from_file_object(f, delimiter=delimiter,
+                                             comment=comment,
+                                             quote=quote, decimal=decimal, sci=sci,
+                                             usecols=usecols, skiprows=skiprows,
+                                             max_rows=max_rows,
+                                             dtype=dtype, codes=codes, sizes=sizes,
+                                             encoding=enc)
     else:
         # Assume file is a file object.
+        enc = encoding.encode('ascii') if encoding is not None else None
         arr = _readtext_from_file_object(file, delimiter=delimiter,
                                          comment=comment,
                                          quote=quote, decimal=decimal, sci=sci,
                                          usecols=usecols, skiprows=skiprows,
                                          max_rows=max_rows,
-                                         dtype=dtype, codes=codes, sizes=sizes)
+                                         dtype=dtype, codes=codes, sizes=sizes,
+                                         encoding=enc)
 
     if ndmin is not None:
         # Handle non-None ndmin like np.loadtxt.  Might change this eventually?

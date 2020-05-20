@@ -70,6 +70,10 @@ typedef struct _python_file_by_line {
     /* Position in the buffer of the next character to read. */
     Py_ssize_t current_buffer_pos;
 
+    // encoding must be None or a bytes object holding an
+    // ASCII-encoding string, e.g. b'utf-8'.
+    PyObject *encoding;
+
 } python_file_by_line;
 
 #define FB(fb)  ((python_file_by_line *)fb)
@@ -108,6 +112,28 @@ int _fb_load(void *fb)
             return STREAM_ERROR;
         }
         Py_INCREF(line);
+        if (PyBytes_Check(line)) {
+            PyObject *uline;
+            char *enc;
+            // readline() returned bytes, so encode it.
+            // XXX if no encoding was specified, assume UTF-8.
+            if (FB(fb)->encoding == Py_None) {
+                enc = "utf-8";
+            }
+            else {
+                enc = PyBytes_AsString(FB(fb)->encoding);
+            }
+            uline = PyUnicode_FromEncodedObject(line, enc, NULL);
+            if (uline == NULL) {
+                Py_DECREF(line);
+                // XXX temporary printf
+                printf("_fb_load: failed to decode bytes object\n");
+                return STREAM_ERROR;
+            }
+            Py_INCREF(uline);
+            Py_DECREF(line);
+            line = uline;
+        }
 
         // Cache data about the line in the fb object.
         FB(fb)->unicode_kind = PyUnicode_KIND(line);
@@ -313,7 +339,7 @@ int stream_del(stream *strm, int restore)
 }
 
 
-stream *stream_python_file_by_line(PyObject *obj)
+stream *stream_python_file_by_line(PyObject *obj, PyObject *encoding)
 {
     python_file_by_line *fb;
     stream *strm;
@@ -332,6 +358,7 @@ stream *stream_python_file_by_line(PyObject *obj)
     fb->seek = NULL;
     fb->tell = NULL;
     fb->empty_tuple = NULL;
+    fb->encoding = encoding;
 
     strm = (stream *) malloc(sizeof(stream));
     if (strm == NULL) {
