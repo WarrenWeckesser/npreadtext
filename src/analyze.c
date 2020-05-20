@@ -25,6 +25,57 @@ typedef struct {
 } integer_range;
 
 
+int enlarge_types(int new_num_fields, int num_fields, field_type **types)
+{
+    int nbytes;
+    field_type *new_types;
+
+    nbytes = new_num_fields * sizeof(field_type);
+    new_types = (field_type *) realloc(*types, nbytes);
+    if (new_types == NULL) {
+        free(*types);
+        *types = NULL;
+        return -1;
+    }
+    for (int k = num_fields; k < new_num_fields; ++k) {
+        new_types[k].typecode = '*';
+        new_types[k].itemsize = 0;
+    }
+    *types = new_types;
+    return 0;
+}
+
+int enlarge_ranges(int new_num_fields, int num_fields, integer_range **ranges)
+{
+    int nbytes;
+    integer_range *new_ranges;
+
+    nbytes = new_num_fields * sizeof(integer_range);
+    new_ranges = (integer_range *) realloc(*ranges, nbytes);
+    if (new_ranges == NULL) {
+        free(*ranges);
+        *ranges = NULL;
+        return -1;
+    }
+    for (int k = num_fields; k < new_num_fields; ++k) {
+        new_ranges[k].imin = 0;
+        new_ranges[k].umax = 0;
+    }
+    *ranges = new_ranges;
+    return 0;
+}
+
+int enlarge_type_tracking_arrays(int new_num_fields, int num_fields,
+                                 field_type **types, integer_range **ranges)
+{
+    int status1 = enlarge_types(new_num_fields, num_fields, types);
+    int status2 = enlarge_ranges(new_num_fields, num_fields, ranges);
+    if (status1 != 0 || status2 != 0) {
+        return -1;
+    }
+    return 0;
+}
+
 /*
  *  Parameters
  *  ----------
@@ -53,27 +104,15 @@ typedef struct {
  */
 
 int analyze(stream *s, parser_config *pconfig, int skiplines, int numrows,
-            //char *datetime_fmt, 
             int *p_num_fields, field_type **p_field_types)
 {
-    int row_count;
-    int num_fields;
-    int max_num_fields;
-    char **result;
-    char word_buffer[WORD_BUFFER_SIZE];
-    int tok_error_type;
-    field_type *types;
-    integer_range *ranges;
-    int k;
+    int row_count = 0;
+    int num_fields = 0;
+    field_type *types = NULL;
+    integer_range *ranges = NULL;
 
     char decimal = pconfig->decimal;
     char sci = pconfig->sci;
-
-    // XXX D.R.Y. -- this code cut-and-pasted from read_rows.
-    // XXX The default datetime format should not be hard-coded in two places.
-    //if (datetime_fmt == NULL || strlen(datetime_fmt) == 0) {
-    //    datetime_fmt = "%Y-%m-%d %H:%M:%S";
-    //}
 
     stream_skiplines(s, skiplines);
     if (stream_peek(s) == STREAM_EOF) {
@@ -82,63 +121,52 @@ int analyze(stream *s, parser_config *pconfig, int skiplines, int numrows,
         return 0;
     }
 
-    row_count = 0;
-    max_num_fields = 0;
-    types = NULL;
-    ranges = NULL;
+    char *word_buffer = malloc(WORD_BUFFER_SIZE);
+    if (word_buffer == NULL) {
+        return ANALYZE_OUT_OF_MEMORY;
+    }
+
     // In this loop, types[k].itemsize will track the largest field length
     // encountered for field k, regardless of the apparent type of the field
-    // (since we don't really know the field type until we've seen the whole
+    // (since we don't know the field type until we've seen the whole
     // file).
-    while ((row_count != numrows) &&
-           (result = tokenize(s, word_buffer, WORD_BUFFER_SIZE,
-                              pconfig, &num_fields, &tok_error_type)) != NULL) {
+    // ranges[k].imin tracks the most negative integer seen in the field.
+    // (If all the values are positive, ranges[k].imin will be 0.)
+    // ranges[k].umax tracks the largest positive integer seen in the field.
+    // (If all the values are negative, ranges[k].umax will be 0.)
+    while (row_count != numrows) {
+        int new_num_fields;
+        int tok_error_type;
+        char **result;
 
-        if (num_fields > max_num_fields) {
-            int nbytes;
-            field_type *new_types;
-            integer_range *new_ranges;
-            // The first row, or a row with more fields than previously seen...
-            nbytes = num_fields * sizeof(field_type);
-            new_types = (field_type *) realloc(types, nbytes);
-            if (new_types == NULL) {
-                free(types);
-                free(result);
-                //fb_del(fb, RESTORE_INITIAL);
-                return ANALYZE_OUT_OF_MEMORY;
-            }
-            types = new_types;
-
-            nbytes = num_fields * sizeof(integer_range);
-            new_ranges = (integer_range *) realloc(ranges, nbytes);
-            if (new_ranges == NULL) {
-                free(ranges);
-                free(types);
-                free(result);
-                //fb_del(fb, RESTORE_INITIAL);
-                return ANALYZE_OUT_OF_MEMORY;
-            }
-            ranges = new_ranges;
-
-            for (k = max_num_fields; k < num_fields; ++k) {
-                types[k].typecode = '*';
-                types[k].itemsize = 0;
-                ranges[k].imin = 0;
-                ranges[k].umax = 0;
-            }
-            max_num_fields = num_fields;
+        result = tokenize(s, word_buffer, WORD_BUFFER_SIZE,
+                          pconfig, &new_num_fields, &tok_error_type);
+        if (result == NULL) {
+            break;
         }
 
-        for (k = 0; k < num_fields; ++k) {
+        if (new_num_fields > num_fields) {
+            // The first row, or a row with more fields than previously seen...
+            int status = enlarge_type_tracking_arrays(new_num_fields, num_fields,
+                                                      &types, &ranges);
+            if (status != 0) {
+                // If this occurs, types and ranges have been freed in
+                // enlarge_type_tracking_array().
+                free(result);
+                free(word_buffer);
+                //fb_del(fb, RESTORE_INITIAL);
+                return ANALYZE_OUT_OF_MEMORY;
+            }
+            num_fields = new_num_fields;
+        }
+
+        for (int k = 0; k < num_fields; ++k) {
             char typecode;
             int field_len;
             int64_t imin;
             uint64_t umax;
             typecode = classify_type(result[k], decimal, sci, &imin, &umax,
-                                     //datetime_fmt,
                                      types[k].typecode);
-            //printf("k = %d: types[k].typecode = %c, result[k] = '%s', typecode = %c\n",
-            //       k, types[k].typecode, result[k], typecode);
             if (typecode == 'q' && imin < ranges[k].imin) {
                 ranges[k].imin = imin;
             }
@@ -157,6 +185,8 @@ int analyze(stream *s, parser_config *pconfig, int skiplines, int numrows,
         ++row_count;
     }
 
+    free(word_buffer);
+
     // At this point, any field that contained only unsigned integers
     // or only integers (some negative) has been classified as typecode='Q'
     // or typecode='q', respectively.  Now use the integer ranges that were
@@ -164,7 +194,7 @@ int analyze(stream *s, parser_config *pconfig, int skiplines, int numrows,
     // We also "fix" the itemsize field for any non-string fields (even though
     // the itemsize of non-strings is implicit in the typecode).
 
-    for (k = 0; k < max_num_fields; ++k) {
+    for (int k = 0; k < num_fields; ++k) {
         char typecode = types[k].typecode;
         if (typecode == 'q' || typecode == 'Q') {
             // Integer type.  Use imin and umax to refine the type.
@@ -202,10 +232,9 @@ int analyze(stream *s, parser_config *pconfig, int skiplines, int numrows,
         }
     }
 
-    // Done with ranges.
     free(ranges);
 
-    *p_num_fields = max_num_fields;
+    *p_num_fields = num_fields;
     *p_field_types = types;
 
     //fb_del(fb, RESTORE_INITIAL);
