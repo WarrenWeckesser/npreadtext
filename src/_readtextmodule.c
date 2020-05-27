@@ -60,7 +60,6 @@ _readtext_from_stream(stream *s, char *filename, parser_config *pc,
 
     char dtypestr[DTYPESTR_SIZE];
 
-
     if (dtype == Py_None) {
         // Make the first pass of the file to analyze the data type
         // and count the number of rows.
@@ -74,6 +73,13 @@ _readtext_from_stream(stream *s, char *filename, parser_config *pc,
             return NULL;
         }
         stream_seek(s, 0);
+        if (nrows == 0) {
+            // Empty file, and a dtype was not given.  In this case, return
+            // an array with shape (0, 0) and data type float64.
+            npy_intp dims[2] = {0, 0};
+            arr = PyArray_SimpleNew(2, dims, NPY_FLOAT64);
+            return arr;
+        }
     }
     else {
         // A dtype was given.
@@ -108,6 +114,7 @@ _readtext_from_stream(stream *s, char *filename, parser_config *pc,
     else {
         ncols = PyArray_SIZE(usecols);
         cols = PyArray_DATA(usecols);
+        //printf("_readtext_from_stream: ncols = %d\n", ncols);
         //for (int j = 0; j < ncols; ++j) {
         //    printf("cols[%d] = %d\n", j, cols[j]);
         //}
@@ -135,9 +142,9 @@ _readtext_from_stream(stream *s, char *filename, parser_config *pc,
         if (j > 0) {
             dtypestr[p++] = ',';
         }
-        dtypestr[p++] = ft[k].typecode;
-        if (ft[k].typecode == 'S') {
-            int nc = snprintf(dtypestr + p, DTYPESTR_SIZE - p - 1, "%d", ft[k].itemsize);
+        dtypestr[p++] = ft[j].typecode;
+        if (ft[j].typecode == 'S') {
+            int nc = snprintf(dtypestr + p, DTYPESTR_SIZE - p - 1, "%d", ft[j].itemsize);
             p += nc;
         }
         if (homogeneous) {
@@ -177,6 +184,7 @@ _readtext_from_stream(stream *s, char *filename, parser_config *pc,
                                  cols, ncols, skiprows, NULL,
                                  &num_cols,
                                  &error_type, &error_lineno);
+
         shape[0] = num_rows;
         if (!PyDataType_ISEXTENDED(dtype)) {
             ndim = 2;
@@ -194,10 +202,12 @@ _readtext_from_stream(stream *s, char *filename, parser_config *pc,
                                    ndim, shape, NULL, result, 0, NULL);
         // XXX Check for arr == NULL...
     }
+
     free(ft);
 
     return arr;
 }
+
 
 static void
 raise_analyze_exception(int nrows, char *filename)
@@ -306,6 +316,7 @@ _readtext_from_filename(PyObject *self, PyObject *args, PyObject *kwargs)
 
     arr = _readtext_from_stream(s, filename, &pc, usecols, skiprows, max_rows,
                                 dtype, num_dtype_fields, codes_ptr, sizes_ptr);
+
     stream_close(s, RESTORE_NOT);
     return arr;
 }
@@ -340,8 +351,6 @@ _readtext_from_file_object(PyObject *self, PyObject *args, PyObject *kwargs)
     parser_config pc;
     PyObject *arr = NULL;
     int num_dtype_fields;
-
-    fprintf(stderr, "_readtext_from_file_object: starting\n");
 
     if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|$sssssOiiOOOO", kwlist,
                                      &file, &delimiter, &comment, &quote,

@@ -160,7 +160,7 @@ int analyze(stream *s, parser_config *pconfig, int skiplines, int numrows,
             num_fields = new_num_fields;
         }
 
-        for (int k = 0; k < num_fields; ++k) {
+        for (int k = 0; k < new_num_fields; ++k) {
             char typecode;
             int field_len;
             int64_t imin;

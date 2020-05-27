@@ -127,14 +127,17 @@ void *read_rows(stream *s, int *nrows,
         // There were fewer lines in the file than skiplines.
         // This is not treated as an error. The result should be an
         // empty array.
-        if (*nrows < 0) {
-            blocks_destroy(blks);
-        }
-        *nrows = 0;
+
         //stream_close(s, RESTORE_FINAL);
 
-        // FIXME: NULL is not correct!
-        return NULL;
+        if (*nrows < 0) {
+            *nrows = 0;
+            return NULL;
+        }
+        else {
+            *nrows = 0;
+            return data_array;
+        }
     }
 
     row_count = 0;
@@ -236,72 +239,103 @@ void *read_rows(stream *s, int *nrows,
 
             /* XXX Handle error != 0 in the following cases. */
             if (typecode == 'b') {
-                int8_t x = (int8_t) str_to_int64(result[k], INT8_MIN, INT8_MAX, &error);
-                _check_field_error(error, s, k, "int8", result[k]);
+                int8_t x = 0;
+                if (k < current_num_fields) {
+                    x = (int8_t) str_to_int64(result[k], INT8_MIN, INT8_MAX, &error);
+                    _check_field_error(error, s, k, "int8", result[k]);
+                }
                 *(int8_t *) data_ptr = x;
-                data_ptr += field_types[j].itemsize;
+                data_ptr += field_types[f].itemsize;
             }
             else if (typecode == 'B') {
-                uint8_t x = (uint8_t) str_to_uint64(result[k], UINT8_MAX, &error);
-                _check_field_error(error, s, k, "uint8", result[k]);
+                uint8_t x = 0;
+                if (k < current_num_fields) {
+                    x = (uint8_t) str_to_uint64(result[k], UINT8_MAX, &error);
+                    _check_field_error(error, s, k, "uint8", result[k]);
+                }
                 *(uint8_t *) data_ptr = x;
-                data_ptr += field_types[j].itemsize;   
+                data_ptr += field_types[f].itemsize;
             }
             else if (typecode == 'h') {
-                int16_t x = (int16_t) str_to_int64(result[k], INT16_MIN, INT16_MAX, &error);
-                _check_field_error(error, s, k, "int16", result[k]);
+                int16_t x = 0;
+                if (k < current_num_fields) {
+                    x = (int16_t) str_to_int64(result[k], INT16_MIN, INT16_MAX, &error);
+                    _check_field_error(error, s, k, "int16", result[k]);
+                }
                 *(int16_t *) data_ptr = x;
-                data_ptr += field_types[j].itemsize;
+                data_ptr += field_types[f].itemsize;
             }
             else if (typecode == 'H') {
-                uint16_t x = (uint16_t) str_to_uint64(result[k], UINT16_MAX, &error);
-                _check_field_error(error, s, k, "uint16", result[k]);
+                uint16_t x = 0;
+                if (k < current_num_fields) {
+                    x = (uint16_t) str_to_uint64(result[k], UINT16_MAX, &error);
+                    _check_field_error(error, s, k, "uint16", result[k]);
+                }
                 *(uint16_t *) data_ptr = x;
-                data_ptr += field_types[j].itemsize;
+                data_ptr += field_types[f].itemsize;
             }
             else if (typecode == 'i') {
-                int32_t x = (int32_t) str_to_int64(result[k], INT32_MIN, INT32_MAX, &error);
-                _check_field_error(error, s, k, "int32", result[k]);
+                int32_t x = 0;
+                if (k < current_num_fields) {
+                    x = (int32_t) str_to_int64(result[k], INT32_MIN, INT32_MAX, &error);
+                    _check_field_error(error, s, k, "int32", result[k]);
+                }
                 *(int32_t *) data_ptr = x;
-                data_ptr += field_types[j].itemsize;   
+                data_ptr += field_types[f].itemsize;
             }
             else if (typecode == 'I') {
-                uint32_t x = (uint32_t) str_to_uint64(result[k], UINT32_MAX, &error);
-                _check_field_error(error, s, k, "uint32", result[k]);
+                uint32_t x = 0;
+                if (k < current_num_fields) {
+                    x = (uint32_t) str_to_uint64(result[k], UINT32_MAX, &error);
+                    _check_field_error(error, s, k, "uint32", result[k]);
+                }
                 *(uint32_t *) data_ptr = x;
-                data_ptr += field_types[j].itemsize;   
+                data_ptr += field_types[f].itemsize;
             }
             else if (typecode == 'q') {
-                int64_t x = (int64_t) str_to_int64(result[k], INT64_MIN, INT64_MAX, &error);
-                _check_field_error(error, s, k, "int64", result[k]);
+                int64_t x = 0;
+                if (k < current_num_fields) {
+                    x = (int64_t) str_to_int64(result[k], INT64_MIN, INT64_MAX, &error);
+                    _check_field_error(error, s, k, "int64", result[k]);
+                }
                 *(int64_t *) data_ptr = x;
-                data_ptr += field_types[j].itemsize; 
+                data_ptr += field_types[f].itemsize;
             }
             else if (typecode == 'Q') {
-                uint64_t x = (uint64_t) str_to_uint64(result[k], UINT64_MAX, &error);
-                _check_field_error(error, s, k, "uint64", result[k]);
+                uint64_t x = 0;
+                if (k < current_num_fields) {
+                    x = (uint64_t) str_to_uint64(result[k], UINT64_MAX, &error);
+                    _check_field_error(error, s, k, "uint64", result[k]);
+                }
                 *(uint64_t *) data_ptr = x;
-                data_ptr += field_types[j].itemsize;    
+                data_ptr += field_types[f].itemsize;
             }
             else if (typecode == 'f' || typecode == 'd') {
                 // Convert to float.
-                double x;
-                char decimal = pconfig->decimal;
-                char sci = pconfig->sci;
-                if ((*(result[k]) == '\0') || !to_double(result[k], &x, sci, decimal)) {
-                    _check_field_error(error, s, k, "floating point", result[k]);
-                    x = NAN;
+                double x = NAN;
+                if (k < current_num_fields) {
+                    char decimal = pconfig->decimal;
+                    char sci = pconfig->sci;
+                    if ((*(result[k]) == '\0') || !to_double(result[k], &x, sci, decimal)) {
+                        _check_field_error(error, s, k, "floating point", result[k]);
+                        x = NAN;
+                    }
                 }
-                if (typecode == 'f')
+                if (typecode == 'f') {
                     *(float *) data_ptr = (float) x;
-                else
+                }
+                else {
                     *(double *) data_ptr = x;
+                }
                 data_ptr += field_types[f].itemsize;
             }
             else {
                 // String
-                strncpy(data_ptr, result[k], field_types[j].itemsize);
-                data_ptr += field_types[j].itemsize;
+                memset(data_ptr, 0, field_types[f].itemsize);
+                if (k < current_num_fields) {
+                    strncpy(data_ptr, result[k], field_types[f].itemsize);
+                }
+                data_ptr += field_types[f].itemsize;
             }
         }
 

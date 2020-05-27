@@ -104,10 +104,27 @@ def read(file, *, delimiter=',', comment='#', quote='"',
     if dtype is not None and not isinstance(dtype, np.dtype):
         dtype = np.dtype(dtype)
 
+
     if usecols is not None:
-        usecols = np.atleast_1d(np.array(usecols, dtype=np.int32))
-        if usecols.ndim != 1:
-            raise ValueError('usecols must be one-dimensional')
+        # Allow usecols to be a single int or a sequence of ints
+        try:
+            usecols_as_list = list(usecols)
+        except TypeError:
+            usecols_as_list = [usecols]
+        for col_idx in usecols_as_list:
+            try:
+                operator.index(col_idx)
+            except TypeError:
+                # Some unit tests for numpy.loadtxt require that the
+                # error message matches this format.
+                raise TypeError(
+                    "usecols must be an int or a sequence of ints but "
+                    "it contains at least one element of type %s" %
+                    type(col_idx),
+                    ) from None
+        # Fall back to existing code
+        usecols = np.array([operator.index(i) for i in usecols_as_list],
+                           dtype=np.int32)
 
     if converters is not None:
         raise ValueError("sorry, 'converters' is not implemented yet")
@@ -133,6 +150,9 @@ def read(file, *, delimiter=',', comment='#', quote='"',
             raise ValueError(f"length of usecols ({len(usecols)}) and "
                              f"number of fields in dtype ({len(codes)}) "
                              "do not match.")
+        if len(codes) == 1 and usecols is not None:
+            codes = np.repeat(codes, len(usecols))
+            sizes = np.repeat(sizes, len(usecols))
     else:
         codes = None
         sizes = None
