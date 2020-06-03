@@ -91,12 +91,12 @@ raise_read_exception(read_error_type *read_error)
             default:  typ = "unknown";
         }
         PyErr_Format(PyExc_RuntimeError,
-                     "line %d, field %d: bad %s value\n",
+                     "line %d, field %d: bad %s value",
                      read_error->line_number, read_error->field_number + 1, typ);
     }
     else {
         // Some other error type
-        PyErr_Format(PyExc_RuntimeError, "line %d: error type %d\n",
+        PyErr_Format(PyExc_RuntimeError, "line %d: error type %d",
                      read_error->line_number, read_error->error_type);
     }
 }
