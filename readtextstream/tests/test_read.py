@@ -195,3 +195,10 @@ def test_max_rows():
     a = read(txt, dtype=np.float64, max_rows=2)
     assert_equal(a.dtype, np.float64)
     assert_equal(a, np.array([[1.5, 2.5], [3.0, 4.0]]))
+
+
+@pytest.mark.parametrize('dtype', [np.dtype('f8'), np.dtype('i2')])
+def test_bad_values(dtype):
+    txt = StringIO('1.5,2.5\n3.0,XXX\n5.5,6.0')
+    with pytest.raises(RuntimeError, match=f'bad {dtype.name} value'):
+        read(txt, dtype=dtype)
