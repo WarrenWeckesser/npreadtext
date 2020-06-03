@@ -26,7 +26,7 @@ def _loadtxt(*args, **kwds):
 
     arr = read(*args, delimiter=delimiter, dtype=dtype, ndmin=ndmin,
                comment=comment, **kwds)
-    if arr.shape == (0, 0):
+    if 'unpack' not in kwds and arr.shape == (0, 0):
         arr.resize((0,))
     return arr
 
