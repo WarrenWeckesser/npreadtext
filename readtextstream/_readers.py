@@ -204,6 +204,20 @@ def read(file, *, delimiter=',', comment='#', quote='"',
                                          dtype=dtype, codes=codes, sizes=sizes,
                                          encoding=enc)
 
+    if ndmin is not None:
+        # Handle non-None ndmin like np.loadtxt.  Might change this eventually?
+        # Tweak the size and shape of the arrays - remove extraneous dimensions
+        if arr.ndim > ndmin:
+            arr = np.squeeze(arr)
+        # and ensure we have the minimum number of dimensions asked for
+        # - has to be in this order for the odd case ndmin=1,
+        # X.squeeze().ndim=0
+        if arr.ndim < ndmin:
+            if ndmin == 1:
+                arr = np.atleast_1d(arr)
+            elif ndmin == 2:
+                arr = np.atleast_2d(arr).T
+
     if unpack:
         # Handle unpack like np.loadtxt.
         # XXX Check interaction with ndmin!
