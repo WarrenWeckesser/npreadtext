@@ -29,16 +29,17 @@ def _loadtxt(*args, **kwds):
     arr = read(*args, delimiter=delimiter, dtype=dtype,
                comment=comment, **kwds)
 
-    if 'unpack' not in kwds and arr.shape == (0, 0):
-        arr.resize((0, 1))
-
-    if ndmin == 2:
+    # For now, ignore 'ndmin' if 'unpack' was given.
+    if 'unpack' not in kwds:
         if arr.shape == (0, 0):
-            arr = arr.reshape((0, 1))
-    elif ndmin == 1:
-        arr = np.atleast_1d(np.squeeze(arr))
-    else:
-        arr = np.squeeze(arr)
+            arr.resize((0, 1))
+        if ndmin == 2:
+            if arr.shape == (0, 0):
+                arr = arr.reshape((0, 1))
+        elif ndmin == 1:
+            arr = np.atleast_1d(np.squeeze(arr))
+        else:
+            arr = np.squeeze(arr)
 
     return arr
 
