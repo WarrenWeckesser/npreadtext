@@ -10,3 +10,4 @@
 #define ERROR_TOO_MANY_CHARS           21
 #define ERROR_TOO_MANY_FIELDS          22
 #define ERROR_NO_DATA                  23
+#define ERROR_BAD_FIELD                30

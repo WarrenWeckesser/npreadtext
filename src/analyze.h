@@ -6,7 +6,6 @@
 #include "parser_config.h"
 #include "stream.h"
 
-#define READ_ERROR_OUT_OF_MEMORY   1
 
 #define ANALYZE_FILE_ERROR    -1
 #define ANALYZE_OUT_OF_MEMORY -2

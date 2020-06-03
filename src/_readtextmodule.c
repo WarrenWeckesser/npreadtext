@@ -15,13 +15,91 @@
 #include "field_type.h"
 #include "analyze.h"
 #include "rows.h"
+#include "error_types.h"
 
 // FIXME: This hard-coded constant should not be necessary.
 #define DTYPESTR_SIZE 100
 
-static void
-raise_analyze_exception(int nrows, char *filename);
 
+static void
+raise_analyze_exception(int nrows, char *filename)
+{
+    if (nrows == ANALYZE_OUT_OF_MEMORY) {
+        if (filename) {
+            PyErr_Format(PyExc_MemoryError,
+                         "Out of memory while analyzing '%s'", filename);
+        } else {
+            PyErr_Format(PyExc_MemoryError,
+                         "Out of memory while analyzing file.");
+        }
+    }
+    else if (nrows == ANALYZE_FILE_ERROR) {
+        if (filename) {
+            PyErr_Format(PyExc_RuntimeError,
+                         "File error while analyzing '%s'", filename);
+        } else {
+            PyErr_Format(PyExc_RuntimeError,
+                         "File error while analyzing file.");
+        }
+    }
+    else {
+        if (filename) {
+            PyErr_Format(PyExc_RuntimeError,
+                         "Unknown error when analyzing '%s'", filename);
+        } else {
+            PyErr_Format(PyExc_RuntimeError,
+                         "Unknown error when analyzing file.");
+        }
+    }
+}
+
+static void
+raise_read_exception(read_error_type *read_error)
+{
+    if (read_error->error_type == 0) {
+        // No error.
+        return;
+    }
+    if (read_error->error_type == ERROR_OUT_OF_MEMORY) {
+        PyErr_Format(PyExc_MemoryError, "out of memory while reading file");
+    }
+    else if (read_error->error_type == ERROR_INVALID_COLUMN_INDEX) {
+        PyErr_Format(PyExc_RuntimeError, "line %d: invalid column index %d",
+                     read_error->line_number, read_error->column_index);
+    }
+    else if (read_error->error_type == ERROR_BAD_FIELD) {
+        // TODO: Maybe add the field value from the file to the
+        // read_error_type struct, or perhaps just, say, the first
+        // 32 characters. But it might be unicode...
+        char *typ;
+        // FIXME: Modularize this...
+        switch (read_error->typecode) {
+            case 'b': typ = "int8"; break;
+            case 'B': typ = "uint8"; break;
+            case 'h': typ = "int16"; break;
+            case 'H': typ = "uint16"; break;
+            case 'i': typ = "int32"; break;
+            case 'I': typ = "uint32"; break;
+            case 'q': typ = "int64"; break;
+            case 'Q': typ = "uint64"; break;
+            case 'f': typ = "float32"; break;
+            case 'd': typ = "float64"; break;
+            case 'c': typ = "complex64"; break;
+            case 'z': typ = "complex128"; break;
+            case 'S': typ = "S"; break;
+            case 'U': typ = "U"; break;
+            default:  typ = "unknown";
+        }
+        PyErr_Format(PyExc_RuntimeError,
+                     "line %d, field %d: bad %s value\n",
+                     read_error->line_number, read_error->field_number + 1, typ);
+    }
+    else {
+        // Some other error type
+        PyErr_Format(PyExc_RuntimeError, "line %d: error type %d\n",
+                     read_error->line_number, read_error->error_type);
+    }
+}
 
 //
 // `usecols` must point to a Python object that is Py_None or a 1-d contiguous
@@ -54,9 +132,6 @@ _readtext_from_stream(stream *s, char *filename, parser_config *pc,
 
     bool homogeneous;
     npy_intp shape[2];
-
-    int error_type;
-    int error_lineno;
 
     char dtypestr[DTYPESTR_SIZE];
 
@@ -167,23 +242,33 @@ _readtext_from_stream(stream *s, char *filename, parser_config *pc,
         // FIXME: Handle failure here...
         arr = PyArray_SimpleNewFromDescr(ndim, shape, dtype1);
         if (arr) {
+            read_error_type read_error;
             int num_rows = nrows;
             void *result = read_rows(s, &num_rows, num_fields, ft, pc,
                                      cols, ncols, skiprows, PyArray_DATA(arr),
-                                     &num_cols,
-                                     &error_type, &error_lineno);
+                                     &num_cols, &read_error);
+            if (read_error.error_type != 0) {
+                free(ft);
+                raise_read_exception(&read_error);
+                return NULL;
+            }
         }
     }
     else {
         // A dtype was given.
         // XXX Work in progress...
+        read_error_type read_error;
         int num_cols;
         int ndim;
         int num_rows = nrows;
         void *result = read_rows(s, &num_rows, num_fields, ft, pc,
                                  cols, ncols, skiprows, NULL,
-                                 &num_cols,
-                                 &error_type, &error_lineno);
+                                 &num_cols, &read_error);
+        if (read_error.error_type != 0) {
+            free(ft);
+            raise_read_exception(&read_error);
+            return NULL;
+        }
 
         shape[0] = num_rows;
         if (!PyDataType_ISEXTENDED(dtype)) {
@@ -214,38 +299,6 @@ _readtext_from_stream(stream *s, char *filename, parser_config *pc,
     return arr;
 }
 
-
-static void
-raise_analyze_exception(int nrows, char *filename)
-{
-    if (nrows == ANALYZE_OUT_OF_MEMORY) {
-        if (filename) {
-            PyErr_Format(PyExc_MemoryError,
-                         "Out of memory while analyzing '%s'", filename);
-        } else {
-            PyErr_Format(PyExc_MemoryError,
-                         "Out of memory while analyzing file.");
-        }
-    }
-    else if (nrows == ANALYZE_FILE_ERROR) {
-        if (filename) {
-            PyErr_Format(PyExc_RuntimeError,
-                         "File error while analyzing '%s'", filename);
-        } else {
-            PyErr_Format(PyExc_RuntimeError,
-                         "File error while analyzing file.");
-        }
-    }
-    else {
-        if (filename) {
-            PyErr_Format(PyExc_RuntimeError,
-                         "Unknown error when analyzing '%s'", filename);
-        } else {
-            PyErr_Format(PyExc_RuntimeError,
-                         "Unknown error when analyzing file.");
-        }
-    }
-}
 
 static PyObject *
 _readtext_from_filename(PyObject *self, PyObject *args, PyObject *kwargs)

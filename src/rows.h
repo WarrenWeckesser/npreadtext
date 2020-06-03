@@ -8,10 +8,19 @@
 #include "field_type.h"
 #include "parser_config.h"
 
-#define READ_ERROR_OUT_OF_MEMORY   1
-
-#define ANALYZE_FILE_ERROR    -1
-#define ANALYZE_OUT_OF_MEMORY -2
+//
+// This structure holds information about errors arising
+// in read_rows().
+//
+typedef struct _read_error {
+    int error_type;
+    int line_number;
+    int field_number;
+    int char_position;
+    char typecode;
+    // int itemsize;  // not sure this is needed.
+    int32_t column_index; // for ERROR_INVALID_COLUMN_INDEX;
+} read_error_type;
 
 /*
 int analyze(FILE *f, parser_config *pconfig, int skiplines, int numrows,
@@ -30,6 +39,6 @@ void *read_rows(stream *s, int *nrows,
                 int skiplines,
                 void *data_array,
                 int *num_cols,
-                int *p_error_type, int *p_error_lineno);
+                read_error_type *read_error);
 
 #endif

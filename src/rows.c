@@ -23,20 +23,6 @@
 #define ROWS_PER_BLOCK 500
 
 //
-//  For now, a convenient way to print an error to the console.
-//  XXX Need a better design for handling invalid values encountered
-//      in a file.
-//
-void _check_field_error(int error, stream *s, int col_index, char *typename, char *text)
-{
-    if (error != ERROR_OK) {
-        fprintf(stderr, "line num %d, col num %d: bad %s value: '%s'\n",
-                stream_linenumber(s), col_index + 1, typename, text);
-    }
-}
-
-
-//
 // If num_field_types is not 1, actual_num_fields must equal num_field_types.
 //
 size_t compute_row_size(int actual_num_fields,
@@ -89,8 +75,8 @@ size_t compute_row_size(int actual_num_fields,
  *  void *data_array
  *  int *num_cols
  *      The actual number of columns (or fields) of the data being returned.
- *  int *p_error_type
- *  int *p_error_lineno
+ *  read_error_type *read_error
+ *      Information about errors detected in read_rows()
  */
 
 void *read_rows(stream *s, int *nrows,
@@ -100,7 +86,7 @@ void *read_rows(stream *s, int *nrows,
                 int skiplines,
                 void *data_array,
                 int *num_cols,
-                int *p_error_type, int *p_error_lineno)
+                read_error_type *read_error)
 {
     char *data_ptr;
     int current_num_fields;
@@ -114,10 +100,6 @@ void *read_rows(stream *s, int *nrows,
     int row_count;
     char word_buffer[WORD_BUFFER_SIZE];
     int tok_error_type;
-    bool error_occurred;
-
-    *p_error_type = 0;
-    *p_error_lineno = 0;
 
     int actual_num_fields = -1;
 
@@ -141,7 +123,6 @@ void *read_rows(stream *s, int *nrows,
     }
 
     row_count = 0;
-    error_occurred = false;
     while (((*nrows < 0) || (row_count < *nrows)) &&
            (result = tokenize(s, word_buffer, WORD_BUFFER_SIZE, pconfig,
                               &current_num_fields, &tok_error_type)) != NULL) {
@@ -181,7 +162,7 @@ void *read_rows(stream *s, int *nrows,
                 blks = blocks_init(row_size, ROWS_PER_BLOCK, INITIAL_BLOCKS_TABLE_LENGTH);
                 if (blks == NULL) {
                     // XXX Check for other clean up that might be necessary.
-                    *p_error_type = ERROR_OUT_OF_MEMORY;
+                    read_error->error_type = ERROR_OUT_OF_MEMORY;
                     return NULL;
                 }
             }
@@ -194,7 +175,7 @@ void *read_rows(stream *s, int *nrows,
                     size = *nrows * row_size;
                     data_array = malloc(size);
                     if (data_array == NULL) {
-                        *p_error_type = ERROR_OUT_OF_MEMORY;
+                        read_error->error_type = ERROR_OUT_OF_MEMORY;
                         return NULL;
                     }
                 }
@@ -206,7 +187,7 @@ void *read_rows(stream *s, int *nrows,
             data_ptr = blocks_get_row_ptr(blks, row_count);
             if (data_ptr == NULL) {
                 blocks_destroy(blks);
-                *p_error_type = ERROR_OUT_OF_MEMORY;
+                read_error->error_type = ERROR_OUT_OF_MEMORY;
                 return NULL;
             }
         }
@@ -227,22 +208,28 @@ void *read_rows(stream *s, int *nrows,
                     k += current_num_fields;
                 }
                 if ((k < 0) || (k >= current_num_fields)) {
-                    // XXX handle this better
-                    fprintf(stderr, "line num %d: bad field index: %d (row has %d fields)\n",
-                            stream_linenumber(s), usecols[j], current_num_fields);
-                    *p_error_type = ERROR_INVALID_COLUMN_INDEX;
-                    *p_error_lineno = stream_linenumber(s);
-                    error_occurred = true;
+                    read_error->error_type = ERROR_INVALID_COLUMN_INDEX;
+                    read_error->line_number = stream_linenumber(s) - 1;
+                    read_error->column_index = usecols[j];
                     break;
                 }
             }
+
+            read_error->error_type = 0;
+            read_error->line_number = stream_linenumber(s) - 1;
+            read_error->field_number = k;
+            read_error->char_position = -1; // FIXME
+            read_error->typecode = typecode;
 
             /* XXX Handle error != 0 in the following cases. */
             if (typecode == 'b') {
                 int8_t x = 0;
                 if (k < current_num_fields) {
                     x = (int8_t) str_to_int64(result[k], INT8_MIN, INT8_MAX, &error);
-                    _check_field_error(error, s, k, "int8", result[k]);
+                    if (error) {
+                        read_error->error_type = ERROR_BAD_FIELD;
+                        break;
+                    }
                 }
                 *(int8_t *) data_ptr = x;
                 data_ptr += field_types[f].itemsize;
@@ -251,7 +238,10 @@ void *read_rows(stream *s, int *nrows,
                 uint8_t x = 0;
                 if (k < current_num_fields) {
                     x = (uint8_t) str_to_uint64(result[k], UINT8_MAX, &error);
-                    _check_field_error(error, s, k, "uint8", result[k]);
+                    if (error) {
+                        read_error->error_type = ERROR_BAD_FIELD;
+                        break;
+                    }
                 }
                 *(uint8_t *) data_ptr = x;
                 data_ptr += field_types[f].itemsize;
@@ -260,7 +250,10 @@ void *read_rows(stream *s, int *nrows,
                 int16_t x = 0;
                 if (k < current_num_fields) {
                     x = (int16_t) str_to_int64(result[k], INT16_MIN, INT16_MAX, &error);
-                    _check_field_error(error, s, k, "int16", result[k]);
+                    if (error) {
+                        read_error->error_type = ERROR_BAD_FIELD;
+                        break;
+                    }
                 }
                 *(int16_t *) data_ptr = x;
                 data_ptr += field_types[f].itemsize;
@@ -269,7 +262,10 @@ void *read_rows(stream *s, int *nrows,
                 uint16_t x = 0;
                 if (k < current_num_fields) {
                     x = (uint16_t) str_to_uint64(result[k], UINT16_MAX, &error);
-                    _check_field_error(error, s, k, "uint16", result[k]);
+                    if (error) {
+                        read_error->error_type = ERROR_BAD_FIELD;
+                        break;
+                    }
                 }
                 *(uint16_t *) data_ptr = x;
                 data_ptr += field_types[f].itemsize;
@@ -278,7 +274,10 @@ void *read_rows(stream *s, int *nrows,
                 int32_t x = 0;
                 if (k < current_num_fields) {
                     x = (int32_t) str_to_int64(result[k], INT32_MIN, INT32_MAX, &error);
-                    _check_field_error(error, s, k, "int32", result[k]);
+                    if (error) {
+                        read_error->error_type = ERROR_BAD_FIELD;
+                        break;
+                    }
                 }
                 *(int32_t *) data_ptr = x;
                 data_ptr += field_types[f].itemsize;
@@ -287,7 +286,10 @@ void *read_rows(stream *s, int *nrows,
                 uint32_t x = 0;
                 if (k < current_num_fields) {
                     x = (uint32_t) str_to_uint64(result[k], UINT32_MAX, &error);
-                    _check_field_error(error, s, k, "uint32", result[k]);
+                    if (error) {
+                        read_error->error_type = ERROR_BAD_FIELD;
+                        break;
+                    }
                 }
                 *(uint32_t *) data_ptr = x;
                 data_ptr += field_types[f].itemsize;
@@ -296,7 +298,10 @@ void *read_rows(stream *s, int *nrows,
                 int64_t x = 0;
                 if (k < current_num_fields) {
                     x = (int64_t) str_to_int64(result[k], INT64_MIN, INT64_MAX, &error);
-                    _check_field_error(error, s, k, "int64", result[k]);
+                    if (error) {
+                        read_error->error_type = ERROR_BAD_FIELD;
+                        break;
+                    }
                 }
                 *(int64_t *) data_ptr = x;
                 data_ptr += field_types[f].itemsize;
@@ -305,7 +310,10 @@ void *read_rows(stream *s, int *nrows,
                 uint64_t x = 0;
                 if (k < current_num_fields) {
                     x = (uint64_t) str_to_uint64(result[k], UINT64_MAX, &error);
-                    _check_field_error(error, s, k, "uint64", result[k]);
+                    if (error) {
+                        read_error->error_type = ERROR_BAD_FIELD;
+                        break;
+                    }
                 }
                 *(uint64_t *) data_ptr = x;
                 data_ptr += field_types[f].itemsize;
@@ -317,8 +325,8 @@ void *read_rows(stream *s, int *nrows,
                     char decimal = pconfig->decimal;
                     char sci = pconfig->sci;
                     if ((*(result[k]) == '\0') || !to_double(result[k], &x, sci, decimal)) {
-                        _check_field_error(error, s, k, "floating point", result[k]);
-                        x = NAN;
+                        read_error->error_type = ERROR_BAD_FIELD;
+                        break;
                     }
                 }
                 if (typecode == 'f') {
@@ -341,7 +349,7 @@ void *read_rows(stream *s, int *nrows,
 
         free(result);
 
-        if (error_occurred) {
+        if (read_error->error_type != 0) {
             break;
         }
 
@@ -349,8 +357,11 @@ void *read_rows(stream *s, int *nrows,
     }
 
     if (use_blocks) {
-        // Copy the blocks into a newly allocated contiguous array.
-        data_array = blocks_to_contiguous(blks, row_count);
+        if (read_error->error_type == 0) {
+            // No error.
+            // Copy the blocks into a newly allocated contiguous array.
+            data_array = blocks_to_contiguous(blks, row_count);
+        }
         blocks_destroy(blks);
     }
 
@@ -358,5 +369,8 @@ void *read_rows(stream *s, int *nrows,
 
     *nrows = row_count;
 
+    if (read_error->error_type) {
+        return NULL;
+    }
     return (void *) data_array;
 }
