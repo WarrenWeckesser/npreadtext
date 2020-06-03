@@ -188,7 +188,13 @@ _readtext_from_stream(stream *s, char *filename, parser_config *pc,
         shape[0] = num_rows;
         if (!PyDataType_ISEXTENDED(dtype)) {
             ndim = 2;
-            shape[1] = num_cols;
+            if (num_rows > 0) {
+                shape[1] = num_cols;
+            }
+            else {
+                // num_rows == 0 => empty file.
+                shape[1] = 0;
+            }
         }
         else {
             ndim = 1;
