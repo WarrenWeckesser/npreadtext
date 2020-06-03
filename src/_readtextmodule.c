@@ -89,7 +89,7 @@ _readtext_from_stream(stream *s, char *filename, parser_config *pc,
             ft[i].typecode = codes[i];
             ft[i].itemsize = sizes[i];
         }
-        nrows = -1;
+        nrows = max_rows;
     }
 
     //for (int i = 0; i < num_fields; ++i) {
