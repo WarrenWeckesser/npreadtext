@@ -293,8 +293,9 @@ _readtext_from_filename(PyObject *self, PyObject *args, PyObject *kwargs)
     pc.decimal = *decimal;
     pc.sci = *sci;
     pc.allow_embedded_newline = true;
-    pc.ignore_leading_spaces = true;
-    pc.ignore_trailing_spaces = true;
+    pc.ignore_leading_spaces = false;
+    pc.ignore_trailing_spaces = false;
+    pc.ignore_blank_lines = true;
     pc.strict_num_fields = false;
 
     if (dtype == Py_None) {
@@ -372,8 +373,9 @@ _readtext_from_file_object(PyObject *self, PyObject *args, PyObject *kwargs)
     pc.decimal = *decimal;
     pc.sci = *sci;
     pc.allow_embedded_newline = true;
-    pc.ignore_leading_spaces = true;
-    pc.ignore_trailing_spaces = true;
+    pc.ignore_leading_spaces = false;
+    pc.ignore_trailing_spaces = false;
+    pc.ignore_blank_lines = true;
     pc.strict_num_fields = false;
 
     if (dtype == Py_None) {

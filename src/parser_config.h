@@ -34,6 +34,12 @@ typedef struct _parser_config {
     int ignore_trailing_spaces;
 
     /*
+     *  Ignore lines that are all spaces.  Only used when the delimiter
+     *  is \0.
+     */
+    int ignore_blank_lines;
+
+    /*
      *  Character that indicates the start of a comment.
      *  Typically '#', '%' or ';'.
      *  When encountered in a line and not inside quotes, all character

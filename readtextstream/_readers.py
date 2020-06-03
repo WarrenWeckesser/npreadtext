@@ -104,7 +104,6 @@ def read(file, *, delimiter=',', comment='#', quote='"',
     if dtype is not None and not isinstance(dtype, np.dtype):
         dtype = np.dtype(dtype)
 
-
     if usecols is not None:
         # Allow usecols to be a single int or a sequence of ints
         try:
@@ -167,31 +166,32 @@ def read(file, *, delimiter=',', comment='#', quote='"',
                                           comment=comment,
                                           quote=quote, decimal=decimal, sci=sci,
                                           usecols=usecols, skiprows=skiprows,
-                                          max_rows=max_rows,
-                                          dtype=dtype, codes=codes, sizes=sizes,
+                                          max_rows=max_rows, dtype=dtype,
+                                          codes=codes, sizes=sizes,
                                           encoding=encoding)
         else:
             f = np.lib._datasource.open(fname, 'rt', encoding=encoding)
             try:
                 enc = encoding.encode('ascii') if encoding is not None else None
                 arr = _readtext_from_file_object(f, delimiter=delimiter,
-                                                 comment=comment,
-                                                 quote=quote, decimal=decimal, sci=sci,
-                                                 usecols=usecols, skiprows=skiprows,
+                                                 comment=comment, quote=quote,
+                                                 decimal=decimal, sci=sci,
+                                                 usecols=usecols,
+                                                 skiprows=skiprows,
                                                  max_rows=max_rows,
-                                                 dtype=dtype, codes=codes, sizes=sizes,
-                                                 encoding=enc)
+                                                 dtype=dtype, codes=codes,
+                                                 sizes=sizes, encoding=enc)
             finally:
                 f.close()
     elif isinstance(file, Path):
         with open(file, encoding=encoding) as f:
             enc = encoding.encode('ascii') if encoding is not None else None
             arr = _readtext_from_file_object(f, delimiter=delimiter,
-                                             comment=comment,
-                                             quote=quote, decimal=decimal, sci=sci,
+                                             comment=comment, quote=quote,
+                                             decimal=decimal, sci=sci,
                                              usecols=usecols, skiprows=skiprows,
-                                             max_rows=max_rows,
-                                             dtype=dtype, codes=codes, sizes=sizes,
+                                             max_rows=max_rows, dtype=dtype,
+                                             codes=codes, sizes=sizes,
                                              encoding=enc)
     else:
         # Assume file is a file object.

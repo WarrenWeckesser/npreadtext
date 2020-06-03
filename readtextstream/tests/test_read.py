@@ -2,7 +2,7 @@ from os import path
 from io import StringIO
 import pytest
 import numpy as np
-from numpy.testing import assert_array_equal, assert_
+from numpy.testing import assert_array_equal, assert_, assert_equal
 from readtextstream import read
 
 
@@ -180,3 +180,18 @@ def test_unpack_array():
     assert_array_equal(a, np.array([1.0, 4.0, 7.0, 0.0]))
     assert_array_equal(b, np.array([2.0, 5.0, 8.0, 1.0]))
     assert_array_equal(c, np.array([3.0, 6.0, 9.0, 2.0]))
+
+
+def test_blank_lines():
+    txt = StringIO('1 2 30\n\n4 5 60\n     \n7 8 90')
+    a = read(txt, delimiter=' ')
+    assert_equal(a.dtype, np.uint8)
+    assert_equal(a, np.array([[1, 2, 30], [4, 5, 60], [7, 8, 90]],
+                             dtype=np.uint8))
+
+
+def test_max_rows():
+    txt = StringIO('1.5,2.5\n3.0,4.0\n5.5,6.0')
+    a = read(txt, dtype=np.float64, max_rows=2)
+    assert_equal(a.dtype, np.float64)
+    assert_equal(a, np.array([[1.5, 2.5], [3.0, 4.0]]))
