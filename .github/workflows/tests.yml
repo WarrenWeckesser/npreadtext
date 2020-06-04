@@ -56,9 +56,11 @@ jobs:
     runs-on: ubuntu-latest
     continue-on-error: true
     strategy:
+      max-parallel: 2
       matrix:
         python-version: [3.8]
         numpy-version: [1.18.4]
+        test-arg: [numpy.lib.tests.test_io::TestLoadTxt, numpy.lib.tests.test_regression]
     steps:
     - uses: actions/checkout@v1
     - name: Set up ${{ matrix.python-version }}
@@ -72,5 +74,7 @@ jobs:
         pip install numpy==${{ matrix.numpy-version }}
     - name: Install readtextstream
       run: |
-        cd compat
-        python check_loadtxt_compat.py -v 3 -t numpy.lib.tests.test_io::TestLoadTxt
+        pip install .
+    - name: Test with pytest
+      run: |
+        python compat/check_loadtxt_compat.py -v 3 -t ${{ matrix.test-arg }}
