@@ -53,7 +53,7 @@ jobs:
         pytest
 
   loadtxt:
-    runs-on: [macos-latest, ubuntu-latest]
+    runs-on: ubuntu-latest
     continue-on-error: true
     strategy:
       max-parallel: 2
