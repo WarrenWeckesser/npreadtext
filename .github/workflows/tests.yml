@@ -31,7 +31,6 @@ jobs:
   test38:
     runs-on: ubuntu-latest
     strategy:
-      max-parallel: 4
       matrix:
         python-version: [3.8]
         numpy-version: [1.18.4]
@@ -52,3 +51,26 @@ jobs:
     - name: Test with pytest
       run: |
         pytest
+
+  loadtxt:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    strategy:
+      matrix:
+        python-version: [3.8]
+        numpy-version: [1.18.4]
+    steps:
+    - uses: actions/checkout@v1
+    - name: Set up ${{ matrix.python-version }}
+      uses: actions/setup-python@v1
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install dependences
+      run: |
+        python -m pip install --upgrade pip
+        pip install pytest
+        pip install numpy==${{ matrix.numpy-version }}
+    - name: Install readtextstream
+      run: |
+        cd compat
+        python check_loadtxt_compat.py -v 3 -t numpy.lib.tests.test_io::TestLoadTxt
