@@ -12,13 +12,10 @@
 #include "parser_config.h"
 #include "stream_file.h"
 #include "stream_python_file_by_line.h"
-#include "field_type.h"
+#include "field_types.h"
 #include "analyze.h"
 #include "rows.h"
 #include "error_types.h"
-
-// FIXME: This hard-coded constant should not be necessary.
-#define DTYPESTR_SIZE 100
 
 
 static void
@@ -68,31 +65,10 @@ raise_read_exception(read_error_type *read_error)
                      read_error->line_number, read_error->column_index);
     }
     else if (read_error->error_type == ERROR_BAD_FIELD) {
-        // TODO: Maybe add the field value from the file to the
-        // read_error_type struct, or perhaps just, say, the first
-        // 32 characters. But it might be unicode...
-        char *typ;
-        // FIXME: Modularize this...
-        switch (read_error->typecode) {
-            case 'b': typ = "int8"; break;
-            case 'B': typ = "uint8"; break;
-            case 'h': typ = "int16"; break;
-            case 'H': typ = "uint16"; break;
-            case 'i': typ = "int32"; break;
-            case 'I': typ = "uint32"; break;
-            case 'q': typ = "int64"; break;
-            case 'Q': typ = "uint64"; break;
-            case 'f': typ = "float32"; break;
-            case 'd': typ = "float64"; break;
-            case 'c': typ = "complex64"; break;
-            case 'z': typ = "complex128"; break;
-            case 'S': typ = "S"; break;
-            case 'U': typ = "U"; break;
-            default:  typ = "unknown";
-        }
         PyErr_Format(PyExc_RuntimeError,
                      "line %d, field %d: bad %s value",
-                     read_error->line_number, read_error->field_number + 1, typ);
+                     read_error->line_number, read_error->field_number + 1,
+                     typecode_to_str(read_error->typecode));
     }
     else {
         // Some other error type
@@ -100,6 +76,55 @@ raise_read_exception(read_error_type *read_error)
                      read_error->line_number, read_error->error_type);
     }
 }
+
+//
+// Build a comma separated string representation of the dtype.
+// If cols == NULL, it is not used.  Otherwise it is an array
+// of length num_cols that gives the index into ft to use.
+//
+char *field_types_build_str(int num_cols, int32_t *cols, bool homogeneous, field_type *ft)
+{
+    char *dtypestr;
+    size_t len;
+
+    // Precompute the length of the string.
+    // len = ...
+    len = num_cols * 8;   // FIXME: crude estimate
+    dtypestr = malloc(len);
+
+    if (dtypestr == NULL) {
+        return NULL;
+    }
+
+    // Fill in the string
+    int p = 0;
+    for (int j = 0; j < num_cols; ++j) {
+        int k;
+        if (cols == NULL) {
+            // No indirection via cols.
+            k = j;
+        }
+        else {
+            // FIXME Values in usecols have not been validated!!!
+            k = cols[j];
+        }
+        if (j > 0) {
+            dtypestr[p++] = ',';
+        }
+        dtypestr[p++] = ft[j].typecode;
+        // FIXME: What about typecode == 'U'?
+        if (ft[j].typecode == 'S') {
+            int nc = snprintf(dtypestr + p, len - p - 1, "%d", ft[j].itemsize);
+            p += nc;
+        }
+        if (homogeneous) {
+            break;
+        }
+    }
+    dtypestr[p] = '\0';
+    return dtypestr;
+}
+
 
 //
 // `usecols` must point to a Python object that is Py_None or a 1-d contiguous
@@ -133,8 +158,6 @@ _readtext_from_stream(stream *s, char *filename, parser_config *pc,
     bool homogeneous;
     npy_intp shape[2];
 
-    char dtypestr[DTYPESTR_SIZE];
-
     if (dtype == Py_None) {
         // Make the first pass of the file to analyze the data type
         // and count the number of rows.
@@ -159,28 +182,16 @@ _readtext_from_stream(stream *s, char *filename, parser_config *pc,
     else {
         // A dtype was given.
         num_fields = num_dtype_fields;
-        ft = malloc(num_dtype_fields * sizeof(field_type));
-        for (int i = 0; i < num_fields; ++i) {
-            ft[i].typecode = codes[i];
-            ft[i].itemsize = sizes[i];
+        ft = field_types_create(num_fields, codes, sizes);
+        if (ft == NULL) {
+            PyErr_Format(PyExc_MemoryError, "out of memory");
+            return NULL;
         }
         nrows = max_rows;
     }
 
-    //for (int i = 0; i < num_fields; ++i) {
-    //    printf("ft[%d].typecode = %c, .itemsize = %d\n", i, ft[i].typecode, ft[i].itemsize);
-    //}
-
-    // Check if all the fields are the same type.
-    // Also compute rowsize, the sum of all the itemsizes in ft.
-    homogeneous = true;
-    rowsize = ft[0].itemsize;
-    for (int k = 1; k < num_fields; ++k) {
-        rowsize += ft[k].itemsize;
-        if ((ft[k].typecode != ft[0].typecode) || (ft[k].itemsize != ft[0].itemsize)) {
-            homogeneous = false;
-        }
-    }
+    homogeneous = field_types_is_homogeneous(num_fields, ft);
+    rowsize = field_types_total_size(num_fields, ft);
 
     if (usecols == Py_None) {
         ncols = num_fields;
@@ -189,10 +200,6 @@ _readtext_from_stream(stream *s, char *filename, parser_config *pc,
     else {
         ncols = PyArray_SIZE(usecols);
         cols = PyArray_DATA(usecols);
-        //printf("_readtext_from_stream: ncols = %d\n", ncols);
-        //for (int j = 0; j < ncols; ++j) {
-        //    printf("cols[%d] = %d\n", j, cols[j]);
-        //}
     }
 
     // XXX In the one-pass case, we don't have nrows.
@@ -201,62 +208,48 @@ _readtext_from_stream(stream *s, char *filename, parser_config *pc,
         shape[1] = ncols;
     }
 
-    // Build a comma separated string representation
-    // of the dtype.
-    // FIXME: make this a separate function.
-    int p = 0;
-    for (int j = 0; j < ncols; ++j) {
-        int k;
-        if (usecols == Py_None) {
-            k = j;
-        }
-        else {
-            // FIXME Values in usecols have not been validated!!!
-            k = cols[j];
-        }
-        if (j > 0) {
-            dtypestr[p++] = ',';
-        }
-        dtypestr[p++] = ft[j].typecode;
-        if (ft[j].typecode == 'S') {
-            int nc = snprintf(dtypestr + p, DTYPESTR_SIZE - p - 1, "%d", ft[j].itemsize);
-            p += nc;
-        }
-        if (homogeneous) {
-            break;
-        }
-    }
-    dtypestr[p] = 0;
-
-    PyObject *dtstr = PyUnicode_FromString(dtypestr);
-    PyArray_Descr *dtype1;
-    int check = PyArray_DescrConverter(dtstr, &dtype1);
-    if (!check) {
-        free(ft);
-        return NULL;
-    }
-
     if (dtype == Py_None) {
         int num_cols;
         int ndim = homogeneous ? 2 : 1;
-        // FIXME: Handle failure here...
+
+        // Build the dtype from the ft array of field types.
+        char *dtypestr = field_types_build_str(ncols, cols, homogeneous, ft);
+        if (dtypestr == NULL) {
+            free(ft);
+            PyErr_SetString(PyExc_MemoryError, "out of memory");
+            return NULL;
+        }
+
+        PyObject *dtstr = PyUnicode_FromString(dtypestr);
+        free(dtypestr);
+        if (!dtstr) {
+            free(ft);
+            return NULL;
+        }
+        PyArray_Descr *dtype1;
+        if (!PyArray_DescrConverter(dtstr, &dtype1)) {
+            free(ft);
+            return NULL;
+        }
+
         arr = PyArray_SimpleNewFromDescr(ndim, shape, dtype1);
-        if (arr) {
-            read_error_type read_error;
-            int num_rows = nrows;
-            void *result = read_rows(s, &num_rows, num_fields, ft, pc,
-                                     cols, ncols, skiprows, PyArray_DATA(arr),
-                                     &num_cols, &read_error);
-            if (read_error.error_type != 0) {
-                free(ft);
-                raise_read_exception(&read_error);
-                return NULL;
-            }
+        if (!arr) {
+            free(ft);
+            return NULL;
+        }
+        read_error_type read_error;
+        int num_rows = nrows;
+        void *result = read_rows(s, &num_rows, num_fields, ft, pc,
+                                 cols, ncols, skiprows, PyArray_DATA(arr),
+                                 &num_cols, &read_error);
+        if (read_error.error_type != 0) {
+            free(ft);
+            raise_read_exception(&read_error);
+            return NULL;
         }
     }
     else {
         // A dtype was given.
-        // XXX Work in progress...
         read_error_type read_error;
         int num_cols;
         int ndim;
@@ -291,7 +284,11 @@ _readtext_from_stream(stream *s, char *filename, parser_config *pc,
         // XXX Fix memory management - `result` was malloc'd.
         arr = PyArray_NewFromDescr(&PyArray_Type, (PyArray_Descr *) dtype,
                                    ndim, shape, NULL, result, 0, NULL);
-        // XXX Check for arr == NULL...
+        if (!arr) {
+            free(ft);
+            free(result);
+            return NULL;
+        }
     }
 
     free(ft);

@@ -8,7 +8,7 @@
 
 #include "tokenize.h"
 #include "sizes.h"
-#include "field_type.h"
+#include "field_types.h"
 #include "analyze.h"
 #include "type_inference.h"
 #include "stream.h"
@@ -24,26 +24,6 @@ typedef struct {
 
 } integer_range;
 
-
-int enlarge_types(int new_num_fields, int num_fields, field_type **types)
-{
-    int nbytes;
-    field_type *new_types;
-
-    nbytes = new_num_fields * sizeof(field_type);
-    new_types = (field_type *) realloc(*types, nbytes);
-    if (new_types == NULL) {
-        free(*types);
-        *types = NULL;
-        return -1;
-    }
-    for (int k = num_fields; k < new_num_fields; ++k) {
-        new_types[k].typecode = '*';
-        new_types[k].itemsize = 0;
-    }
-    *types = new_types;
-    return 0;
-}
 
 int enlarge_ranges(int new_num_fields, int num_fields, integer_range **ranges)
 {
@@ -68,7 +48,7 @@ int enlarge_ranges(int new_num_fields, int num_fields, integer_range **ranges)
 int enlarge_type_tracking_arrays(int new_num_fields, int num_fields,
                                  field_type **types, integer_range **ranges)
 {
-    int status1 = enlarge_types(new_num_fields, num_fields, types);
+    int status1 = field_types_grow(new_num_fields, num_fields, types);
     int status2 = enlarge_ranges(new_num_fields, num_fields, ranges);
     if (status1 != 0 || status2 != 0) {
         return -1;

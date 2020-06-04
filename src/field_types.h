@@ -1,6 +1,10 @@
 
-#ifndef _FIELD_TYPE_H_
-#define _FIELD_TYPE_H_
+#ifndef _FIELD_TYPES_H_
+#define _FIELD_TYPES_H_
+
+#include <stdint.h>
+#include <stdbool.h>
+
 
 typedef struct _field_type {
     // typecode:
@@ -26,8 +30,17 @@ typedef struct _field_type {
     //   Size of field, in bytes.  In theory this would only be
     //   needed for the 's' type code, but it is expected to be
     //   correctly filled in for all the types.
-    int itemsize;
+    int32_t itemsize;
 
 } field_type;
+
+
+field_type *field_types_create(int num_field_types, char *codes, int *sizes);
+void field_types_fprintf(FILE *out, int num_field_types, field_type *ft);
+bool field_types_is_homogeneous(int num_field_types, field_type *ft);
+int32_t field_types_total_size(int num_field_types, field_type *ft);
+int field_types_grow(int new_num_field_types, int num_field_types, field_type **ft);
+
+char *typecode_to_str(char typecode);
 
 #endif

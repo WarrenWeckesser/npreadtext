@@ -152,6 +152,7 @@ def read(file, *, delimiter=',', comment='#', quote='"',
         if len(codes) == 1 and usecols is not None:
             codes = np.repeat(codes, len(usecols))
             sizes = np.repeat(sizes, len(usecols))
+            assert sizes.dtype == np.int32
     else:
         codes = None
         sizes = None

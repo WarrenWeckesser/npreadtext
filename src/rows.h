@@ -5,7 +5,7 @@
 #include <stdio.h>
 
 #include "stream.h"
-#include "field_type.h"
+#include "field_types.h"
 #include "parser_config.h"
 
 //
@@ -18,7 +18,7 @@ typedef struct _read_error {
     int field_number;
     int char_position;
     char typecode;
-    // int itemsize;  // not sure this is needed.
+    // int32_t itemsize;  // not sure this is needed.
     int32_t column_index; // for ERROR_INVALID_COLUMN_INDEX;
 } read_error_type;
 
@@ -33,8 +33,6 @@ int count_rows(FILE *f, parser_config *pconfig);
 void *read_rows(stream *s, int *nrows,
                 int num_field_types, field_type *field_types,
                 parser_config *pconfig,
-                //char *datetime_fmt,
-                //int tz_offset,
                 int *usecols, int num_usecols,
                 int skiplines,
                 void *data_array,

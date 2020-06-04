@@ -13,7 +13,7 @@
 #include "tokenize.h"
 #include "sizes.h"
 #include "conversions.h"
-#include "field_type.h"
+#include "field_types.h"
 #include "rows.h"
 #include "error_types.h"
 #include "str_to.h"
@@ -102,6 +102,8 @@ void *read_rows(stream *s, int *nrows,
     int tok_error_type;
 
     int actual_num_fields = -1;
+
+    read_error->error_type = 0;
 
     stream_skiplines(s, skiplines);
 

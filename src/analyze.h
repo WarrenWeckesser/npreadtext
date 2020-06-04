@@ -2,7 +2,7 @@
 #ifndef _ANALYZE_H_
 #define _ANALYZE_H_
 
-#include "field_type.h"
+#include "field_types.h"
 #include "parser_config.h"
 #include "stream.h"
 
