@@ -1,3 +1,8 @@
+
+// Pure C, no Python API used.
+// With MAINTEST defined, this file has a main() that runs some
+// code checks.
+
 #include <stdlib.h>
 #include <string.h>
 #include "blocks.h"
@@ -66,7 +71,7 @@ blocks_get_row_ptr(blocks_data *b, size_t k)
         int new_block_table_length = 2 * block_table_length;
         if (block_number >= new_block_table_length) {
             // When accessing the rows sequentially from the beginning,
-            // this case won't occur, but if the code evers starts
+            // this case won't occur, but if the code ever starts
             // randomly accessing rows, we make sure a valid table length
             // is used.  (Minimal length would be block_number; add 1 more
             // for no particular reason.)
@@ -127,3 +132,59 @@ blocks_to_contiguous(blocks_data *b, size_t num_rows)
     }
     return data;
 }
+
+
+#ifdef TESTMAIN
+
+#include <stdio.h>
+
+int main(int argc, char *argv[])
+{
+    int row_size = 12;
+    int rows_per_block = 4;
+    int block_table_length = 3;
+
+    int num_rows = 26;
+
+    blocks_data *b = blocks_init(row_size, rows_per_block, block_table_length);
+    if (b == NULL) {
+        fprintf(stderr, "blocks_init returned NULL\n");
+        exit(-1);
+    }
+
+    for (size_t k = 0; k < num_rows; ++k) {
+        char *ptr = blocks_get_row_ptr(b, k);
+        if (ptr == NULL) {
+            fprintf(stderr, "blocks_get_row_ptr(b, %zu) returned NULL\n", k);
+            exit(-1);
+        }
+        memset(ptr, 'A' + k, row_size - 1);
+        ptr[row_size-1] = '\0';
+    }
+
+    printf("b->block_table_length = %d\n", b->block_table_length);
+    printf("b->block_table:\n");
+    for (size_t k = 0; k < b->block_table_length; ++k) {
+        char *p = b->block_table[k];
+        printf("%3zu  %llu\n", k, (long long unsigned) p);
+    }
+
+    char *data = blocks_to_contiguous(b, num_rows);
+    if (data == NULL) {
+        fprintf(stderr, "blocks_to_contiguous returned NULL\n");
+        exit(-1);
+    }
+
+    printf("contiguous data:\n");
+    for (size_t k = 0; k < num_rows; ++k) {
+        char *p = data + row_size*k;
+        printf("%3zu '%s'\n", k, p);
+    }
+
+    free(data);
+    blocks_destroy(b);
+
+    return 0;
+}
+
+#endif

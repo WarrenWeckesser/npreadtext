@@ -77,54 +77,6 @@ raise_read_exception(read_error_type *read_error)
     }
 }
 
-//
-// Build a comma separated string representation of the dtype.
-// If cols == NULL, it is not used.  Otherwise it is an array
-// of length num_cols that gives the index into ft to use.
-//
-char *field_types_build_str(int num_cols, int32_t *cols, bool homogeneous, field_type *ft)
-{
-    char *dtypestr;
-    size_t len;
-
-    // Precompute the length of the string.
-    // len = ...
-    len = num_cols * 8;   // FIXME: crude estimate
-    dtypestr = malloc(len);
-
-    if (dtypestr == NULL) {
-        return NULL;
-    }
-
-    // Fill in the string
-    int p = 0;
-    for (int j = 0; j < num_cols; ++j) {
-        int k;
-        if (cols == NULL) {
-            // No indirection via cols.
-            k = j;
-        }
-        else {
-            // FIXME Values in usecols have not been validated!!!
-            k = cols[j];
-        }
-        if (j > 0) {
-            dtypestr[p++] = ',';
-        }
-        dtypestr[p++] = ft[j].typecode;
-        // FIXME: What about typecode == 'U'?
-        if (ft[j].typecode == 'S') {
-            int nc = snprintf(dtypestr + p, len - p - 1, "%d", ft[j].itemsize);
-            p += nc;
-        }
-        if (homogeneous) {
-            break;
-        }
-    }
-    dtypestr[p] = '\0';
-    return dtypestr;
-}
-
 
 //
 // `usecols` must point to a Python object that is Py_None or a 1-d contiguous

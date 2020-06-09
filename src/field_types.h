@@ -35,11 +35,13 @@ typedef struct _field_type {
 } field_type;
 
 
-field_type *field_types_create(int num_field_types, char *codes, int *sizes);
-void field_types_fprintf(FILE *out, int num_field_types, field_type *ft);
-bool field_types_is_homogeneous(int num_field_types, field_type *ft);
-int32_t field_types_total_size(int num_field_types, field_type *ft);
+field_type *field_types_create(int num_field_types, const char *codes, const int *sizes);
+void field_types_fprintf(FILE *out, int num_field_types, const field_type *ft);
+bool field_types_is_homogeneous(int num_field_types, const field_type *ft);
+int32_t field_types_total_size(int num_field_types, const field_type *ft);
 int field_types_grow(int new_num_field_types, int num_field_types, field_type **ft);
+char *field_types_build_str(int num_cols, const int32_t *cols, bool homogeneous,
+                            const field_type *ft);
 
 char *typecode_to_str(char typecode);
 
