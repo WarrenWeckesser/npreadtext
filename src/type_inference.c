@@ -33,11 +33,7 @@ as missing data.
  *      int ('q')
  *      floating point ('d')
  *      complex ('z')
- *      datetime ('U')
- *  If those all fail, the field type is called 's'.
- *
- *  Only strings that match the given datetime format will
- *  be classified as 'U'.
+ *  If those all fail, the field type is called 'S'.
  *
  *  If the classification is 'Q' or 'q', the value
  *  of the integer is stored in *u or *i, resp.
@@ -55,7 +51,6 @@ as missing data.
  */
 
 char classify_type(char *field, char decimal, char sci, int64_t *i, uint64_t *u,
-                   //char *datetime_fmt,
                    char prev_type)
 {
     int error = 0;
