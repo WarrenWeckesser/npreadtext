@@ -11,7 +11,6 @@
 #define ANALYZE_OUT_OF_MEMORY -2
 
 int analyze(stream *s, parser_config *pconfig, int skiplines, int numrows,
-            //char *datetime_fmt,
             int *num_fields, field_type **field_types);
 
 #endif

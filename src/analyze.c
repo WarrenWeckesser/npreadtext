@@ -64,15 +64,6 @@ int enlarge_type_tracking_arrays(int new_num_fields, int num_fields,
  *      Number of text lines to skip before beginning to analyze the rows.
  *  numrows : int
  *      maximum number of rows to analyze (currently not implemented)
- *  datetime_fmt : char *
- *      If NULL, analyze does not try to parse a field as a date.
- *      Otherwise, datetime_fmt must point to a format string that will
- *      be used by strptime to parse fields.  If strptime succeeds, the
- *      field is classified as type 'U' (datetime).
- *      XXX This design is probably too restrictive, esp. considering that
- *          a very common case is to have two fields, one a date and one
- *          a time, e.g.:
- *              1/2/2010,12:34:56,etc
  *
  *  Return value
  *  ------------

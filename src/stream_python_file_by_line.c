@@ -38,9 +38,6 @@ typedef struct _python_file_by_line {
     /* The `tell` attribute of the file object. */
     PyObject *tell;
 
-    /* Size of the file, in bytes. */
-    //off_t size;
-
     /* file position when the file_buffer was created. */
     off_t initial_file_pos;
 
@@ -63,9 +60,6 @@ typedef struct _python_file_by_line {
 
     /* An empty Python tuple. This is the argument passed to readline. */
     PyObject *empty_tuple;
-
-    /* Offset in the file of the data currently in the buffer. */
-    //off_t buffer_file_pos;
 
     /* Position in the buffer of the next character to read. */
     Py_ssize_t current_buffer_pos;
