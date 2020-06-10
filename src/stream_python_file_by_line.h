@@ -1,5 +1,6 @@
 
 #ifndef _STREAM_PYTHON_FILE_BY_LINE
+#define _STREAM_PYTHON_FILE_BY_LINE
 
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>

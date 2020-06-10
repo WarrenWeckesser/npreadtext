@@ -1,9 +1,11 @@
 
 #include <stdio.h>
 #include <stdint.h>
+#include <stdbool.h>
 #include <string.h>
 #include <ctype.h>
 
+#include "typedefs.h"
 #include "str_to.h"
 
 
@@ -11,10 +13,10 @@
  *  On success, *error is zero.
  *  If the conversion fails, *error is nonzero, and the return value is 0.
  */
-int64_t str_to_int64(const char *p_item, int64_t int_min, int64_t int_max, int *error)
+int64_t str_to_int64(const char32_t *p_item, int64_t int_min, int64_t int_max, int *error)
 {
-    const char *p = (const char *) p_item;
-    int isneg = 0;
+    const char32_t *p = (const char32_t *) p_item;
+    bool isneg = 0;
     int64_t number = 0;
     int d;
 
@@ -25,7 +27,7 @@ int64_t str_to_int64(const char *p_item, int64_t int_min, int64_t int_max, int *
 
     // Handle sign.
     if (*p == '-') {
-        isneg = 1;
+        isneg = true;
         ++p;
     }
     else if (*p == '+') {
@@ -99,9 +101,9 @@ int64_t str_to_int64(const char *p_item, int64_t int_min, int64_t int_max, int *
  *  On success, *error is zero.
  *  If the conversion fails, *error is nonzero, and the return value is 0.
  */
-uint64_t str_to_uint64(const char *p_item, uint64_t uint_max, int *error)
+uint64_t str_to_uint64(const char32_t *p_item, uint64_t uint_max, int *error)
 {
-    const char *p = (const char *) p_item;
+    const char32_t *p = (const char32_t *) p_item;
     uint64_t number = 0;
     int d;
 

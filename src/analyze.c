@@ -6,12 +6,14 @@
 #include <stdlib.h>
 #include <stdint.h>
 
+#include "typedefs.h"
 #include "tokenize.h"
 #include "sizes.h"
 #include "field_types.h"
 #include "analyze.h"
 #include "type_inference.h"
 #include "stream.h"
+#include "char32utils.h"
 
 
 typedef struct {
@@ -82,8 +84,8 @@ int analyze(stream *s, parser_config *pconfig, int skiplines, int numrows,
     field_type *types = NULL;
     integer_range *ranges = NULL;
 
-    char decimal = pconfig->decimal;
-    char sci = pconfig->sci;
+    char32_t decimal = pconfig->decimal;
+    char32_t sci = pconfig->sci;
 
     stream_skiplines(s, skiplines);
     if (stream_peek(s) == STREAM_EOF) {
@@ -92,7 +94,7 @@ int analyze(stream *s, parser_config *pconfig, int skiplines, int numrows,
         return 0;
     }
 
-    char *word_buffer = malloc(WORD_BUFFER_SIZE);
+    char32_t *word_buffer = malloc(WORD_BUFFER_SIZE*sizeof(char32_t));
     if (word_buffer == NULL) {
         return ANALYZE_OUT_OF_MEMORY;
     }
@@ -108,7 +110,7 @@ int analyze(stream *s, parser_config *pconfig, int skiplines, int numrows,
     while (row_count != numrows) {
         int new_num_fields;
         int tok_error_type;
-        char **result;
+        char32_t **result;
 
         result = tokenize(s, word_buffer, WORD_BUFFER_SIZE,
                           pconfig, &new_num_fields, &tok_error_type);
@@ -147,7 +149,7 @@ int analyze(stream *s, parser_config *pconfig, int skiplines, int numrows,
             if (typecode != '*') {
                 types[k].typecode = typecode;
             }
-            field_len = strlen(result[k]);
+            field_len = strlen32(result[k]);
             if (field_len > types[k].itemsize) {
                 types[k].itemsize = field_len;
             }

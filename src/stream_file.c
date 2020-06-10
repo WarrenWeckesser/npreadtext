@@ -38,7 +38,7 @@ typedef struct _file_buffer {
     int32_t line_number;
 
     /* Boolean: has the end of the file been reached? */
-    int reached_eof;
+    bool reached_eof;
 
     /* Offset in the file of the data currently in the buffer. */
     off_t buffer_file_pos;
@@ -76,7 +76,7 @@ int32_t fb_line_number(void *fb)
  */
 
 static
-int32_t _fb_load(void *fb)
+uint32_t _fb_load(void *fb)
 {
     uint8_t *buffer = FB(fb)->buffer;
 
@@ -109,7 +109,7 @@ int32_t _fb_load(void *fb)
 
 
 /*
- *  int32_t fb_fetch(file_buffer *fb)
+ *  char32_t fb_fetch(file_buffer *fb)
  *
  *  Get a single character from the buffer, and advance the buffer pointer.
  *
@@ -121,10 +121,10 @@ int32_t _fb_load(void *fb)
  */
 
 static
-int32_t fb_fetch(void *fb)
+char32_t fb_fetch(void *fb)
 {
     int32_t status;
-    int32_t c;
+    char32_t c;
     uint8_t *buffer = FB(fb)->buffer;
   
     status = _fb_load(fb);
@@ -153,16 +153,16 @@ int32_t fb_fetch(void *fb)
 
 
 /*
- *  int32_t fb_next(file_buffer *fb)
+ *  char32_t fb_next(file_buffer *fb)
  *
  *  Returns the next byte in the buffer, but does not advance the pointer.
  *  If the next two characters in the buffer are "\r\n", '\n' is returned.
  */
 
 static
-int32_t fb_next(void *fb)
+char32_t fb_next(void *fb)
 {
-    int32_t c;
+    char32_t c;
     uint8_t *buffer = FB(fb)->buffer;
 
     _fb_load(fb);
@@ -191,9 +191,9 @@ int32_t fb_next(void *fb)
  */
 
 static
-int32_t fb_skipline(void *fb)
+uint32_t fb_skipline(void *fb)
 {
-    int32_t c;
+    char32_t c;
 
     c = fb_next(fb);
     if (c == STREAM_ERROR) {
@@ -222,10 +222,10 @@ int32_t fb_skipline(void *fb)
  *  The return value is 0 if no errors occurred.
  */
 
-int32_t fb_skiplines(void *fb, int num_lines)
+uint32_t fb_skiplines(void *fb, int num_lines)
 {
     int32_t status;
-    int32_t c;
+    char32_t c;
 
     while (num_lines > 0) {
         status = fb_skipline(fb);
@@ -236,7 +236,7 @@ int32_t fb_skiplines(void *fb, int num_lines)
         if (c == STREAM_EOF) {
             break;
         }
-        if (c < 0) {
+        if (c == STREAM_ERROR) {
             // Error
             return c;
         }

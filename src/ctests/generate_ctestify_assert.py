@@ -1,26 +1,30 @@
 
 
 template = r"""
-void _assert_equal_{type_nosp}(test_results *results, {type} value1, {type} value2, char *msg,
+void _assert_equal_{type_nosp}(test_results *results,
+                        {type} value1, {type} value2, char *msg,
                         char *filename, int linenumber)
 {{
     results->num_assertions += 1;
     if (value1 != value2) {{
         fprintf(results->errfile, "Assertion failed: %s:%d  %s\n", filename, linenumber, msg);
         fprintf(results->errfile, "... {type} values not equal: {format} and {format}\n", value1, value2);
+        fflush(results->errfile);
         results->num_failed += 1;
     }}
 }}
 """
 
 close_template = r"""
-void _assert_close_{type_nosp}(test_results *results, {type} value1, {type} value2, {type} abstol,
+void _assert_close_{type_nosp}(test_results *results,
+                        {type} value1, {type} value2, {type} abstol,
                         char *msg, char *filename, int linenumber)
 {{
     results->num_assertions += 1;
     if (fabs(value1 - value2) > abstol) {{
         fprintf(results->errfile, "Assertion failed: %s:%d  %s\n", filename, linenumber, msg);
         fprintf(results->errfile, "... {type} values not close: {format} and {format}\n", value1, value2);
+        fflush(results->errfile);
         results->num_failed += 1;
     }}
 }}
@@ -79,20 +83,24 @@ for tp, fmt in types:
     tp_nosp = tp.replace(' ', '')
     func = template.format(type=tp, type_nosp=tp_nosp, format=fmt)
     print(func, file=cfile)
-    line1, line2 = func.lstrip().splitlines()[:2]
-    sig = '\n'.join([line1, line2.rstrip()]) + ';'
+    line1, line2, line3 = func.lstrip().splitlines()[:3]
+    sig = '\n'.join([line1, line2, line3.rstrip()]) + ';'
     print(sig, file=hfile)
-    macro = "#define assert_equal_{type_nosp}(A, B, C, D) _assert_equal_{type_nosp}(A, B, C, D, __FILE__, __LINE__)".format(type_nosp=tp_nosp)
+    macro = ("#define assert_equal_{type_nosp}(A, B, C, D) "
+             "_assert_equal_{type_nosp}(A, B, C, D, __FILE__, __LINE__)"
+             .format(type_nosp=tp_nosp))
     print(macro, file=hfile)
     print(file=hfile)
 
     if tp in ['float', 'double']:
         func = close_template.format(type=tp, type_nosp=tp_nosp, format=fmt)
         print(func, file=cfile)
-        line1, line2 = func.lstrip().splitlines()[:2]
-        sig = '\n'.join([line1, line2.rstrip()]) + ';'
+        line1, line2, line3 = func.lstrip().splitlines()[:3]
+        sig = '\n'.join([line1, line2, line3.rstrip()]) + ';'
         print(sig, file=hfile)
-        macro = "#define assert_close_{type_nosp}(A, B, C, D, E) _assert_close_{type_nosp}(A, B, C, D, E, __FILE__, __LINE__)".format(type_nosp=tp_nosp)
+        macro = ("#define assert_close_{type_nosp}(A, B, C, D, E) "
+                 "_assert_close_{type_nosp}(A, B, C, D, E, __FILE__, __LINE__)"
+                 .format(type_nosp=tp_nosp))
         print(macro, file=hfile)
         print(file=hfile)
 

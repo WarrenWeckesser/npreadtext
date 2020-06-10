@@ -4,12 +4,14 @@
 #include <stdio.h>
 #include <errno.h>
 #include <ctype.h>
+#include <stdbool.h>
 
+#include "typedefs.h"
 #include "sizes.h"
-#include "constants.h"
+#include "char32utils.h"
 
-double str_to_double(const char *str, char **end, int *error,
-                     char decimal, char sci, int skip_trailing);
+double str_to_double(const char32_t *str, char32_t **end, int *error,
+                     char32_t decimal, char32_t sci, bool skip_trailing);
 
 /*
  *  `item` must be the nul-terminated string that is to be
@@ -27,23 +29,24 @@ double str_to_double(const char *str, char **end, int *error,
  *
  */
 
-int to_double(char *item, double *p_value, char sci, char decimal)
+bool to_double(char32_t *item, double *p_value, char32_t sci, char32_t decimal)
 {
-    char *p_end;
+    char32_t *p_end;
     int error;
 
-    *p_value = str_to_double(item, &p_end, &error, decimal, sci, TRUE);
+    *p_value = str_to_double(item, &p_end, &error, decimal, sci, true);
 
     return (error == 0) && (!*p_end);
 }
 
 
-int to_complex(char *item, double *p_real, double *p_imag, char sci, char decimal)
+bool to_complex(char32_t *item, double *p_real, double *p_imag,
+                char32_t sci, char32_t decimal)
 {
-    char *p_end;
+    char32_t *p_end;
     int error;
 
-    *p_real = str_to_double(item, &p_end, &error, decimal, sci, FALSE);
+    *p_real = str_to_double(item, &p_end, &error, decimal, sci, false);
     if (*p_end == '\0') {
         // No imaginary part in the string (e.g. "3.5")
         *p_imag = 0.0;
@@ -59,9 +62,9 @@ int to_complex(char *item, double *p_real, double *p_imag, char sci, char decima
         if (*p_end == '+') {
             ++p_end;
         }
-        *p_imag = str_to_double(p_end, &p_end, &error, decimal, sci, FALSE);
+        *p_imag = str_to_double(p_end, &p_end, &error, decimal, sci, false);
         if (error || ((*p_end != 'i') && (*p_end != 'j'))) {
-            return FALSE;
+            return false;
         }
         ++p_end;
     }
@@ -72,15 +75,12 @@ int to_complex(char *item, double *p_real, double *p_imag, char sci, char decima
 }
 
 
-int to_longlong(char *item, long long *p_value)
+bool to_longlong(char32_t *item, long long *p_value)
 {
-    char *p_end;
+    char32_t *p_end;
 
-    // Try integer conversion.  We explicitly give the base to be 10. If
-    // we used 0, strtoll() would convert '012' to 10, because the leading 0 in
-    // '012' signals an octal number in C.  For a general purpose reader, that
-    // would be a bug, not a feature.
-    *p_value = strtoll(item, &p_end, 10);
+    // Try integer conversion.
+    *p_value = strtoll32(item, &p_end);
 
     // Allow trailing spaces.
     while (isspace(*p_end)) ++p_end;

@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <time.h>
 
+#include "typedefs.h"
 #include "str_to.h"
 #include "conversions.h"
 
@@ -50,7 +51,7 @@ as missing data.
  *      to classify a column, not just a single field. 
  */
 
-char classify_type(char *field, char decimal, char sci, int64_t *i, uint64_t *u,
+char classify_type(char32_t *field, char32_t decimal, char32_t sci, int64_t *i, uint64_t *u,
                    char prev_type)
 {
     int error = 0;

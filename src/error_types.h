@@ -1,3 +1,5 @@
+#ifndef ERROR_TYPES_H
+#define ERROR_TYPES_H
 
 /*
  *  Common set of error types for the read_rows() and tokenize()
@@ -11,3 +13,5 @@
 #define ERROR_TOO_MANY_FIELDS          22
 #define ERROR_NO_DATA                  23
 #define ERROR_BAD_FIELD                30
+
+#endif

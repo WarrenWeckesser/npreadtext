@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
+#include "../typedefs.h"
 #include "../blocks.h"
 #include "../field_types.h"
 #include "../conversions.h"
@@ -14,35 +15,46 @@
 #include "ctestify.h"
 
 #define TEST_TO_LONGLONG(value)                                 \
-    s = #value;                                                 \
+    str_to_char32(s, #value);                                   \
     status = to_longlong(s, &m);                                \
     assert_equal_int(results, status, 1,                        \
                      "bad return status from to_longlong()");   \
-    assert_equal_longlong(results, m, value##LL,                 \
-                     "incorrect conversion to long long");
+    assert_equal_longlong(results, m, value##LL,                \
+                          "incorrect conversion to long long");
+
+
+void str_to_char32(char32_t *w, char *s)
+{
+    size_t k = 0;
+    while (s[k]) {
+        w[k] = s[k];
+        ++k;
+    }
+    w[k] = 0;
+}
 
 void test_conversions(test_results *results)
 {
-    char *s;
+    char32_t s[64];
     double x;
     int status;
 
-    s = "1.25";
+    str_to_char32(s, "1.25");
     status = to_double(s, &x, 'e', '.');
     assert_equal_int(results, status, 1, "bad return status from to_double()");
     assert_equal_double(results, x, 1.25, "incorrect conversion to double");
 
-    s = "1,25";
+    str_to_char32(s, "1,25");
     status = to_double(s, &x, 'e', ',');
     assert_equal_int(results, status, 1, "bad return status from to_double()");
     assert_equal_double(results, x, 1.25, "incorrect conversion to double");
 
-    s = "1.25e0";
+    str_to_char32(s, "1.25e0");
     status = to_double(s, &x, 'e', '.');
     assert_equal_int(results, status, 1, "bad return status from to_double()");
     assert_equal_double(results, x, 1.25, "incorrect conversion to double");
 
-    s = "1.25D0";
+    str_to_char32(s, "1.25D0");
     status = to_double(s, &x, 'D', '.');
     assert_equal_int(results, status, 1, "bad return status from to_double()");
     assert_equal_double(results, x, 1.25, "incorrect conversion to double");
@@ -58,31 +70,31 @@ void test_conversions(test_results *results)
 
 void test_str_to(test_results *results)
 {
-    char *s;
+    char32_t s[16];
     int64_t n;
     int error;
 
-    s = "45";
+    str_to_char32(s, "45");
     n = str_to_int64(s, -100, 100, &error);
     assert_equal_int(results, error, 0, "str_to_int64 returned nonzero error");
     assert_equal_int64_t(results, n, 45, "str_to_int64 returned incorrect value");
 
-    s = "-97";
+    str_to_char32(s, "-97");
     n = str_to_int64(s, -100, 100, &error);
     assert_equal_int(results, error, 0, "str_to_int64 returned nonzero error");
     assert_equal_int64_t(results, n, -97, "str_to_int64 returned incorrect value");
 
-    s = "32767";
+    str_to_char32(s, "32767");
     n = str_to_int64(s, -32768, 32767, &error);
     assert_equal_int(results, error, 0, "str_to_int64 returned nonzero error");
     assert_equal_int64_t(results, n, 32767, "str_to_int64 returned incorrect value");
 
-    s = "-32768";
+    str_to_char32(s, "-32768");
     n = str_to_int64(s, -32768, 32767, &error);
     assert_equal_int(results, error, 0, "str_to_int64 returned nonzero error");
     assert_equal_int64_t(results, n, -32768, "str_to_int64 returned incorrect value");
 
-    s = "32768";
+    str_to_char32(s, "32768");
     n = str_to_uint64(s, 100000UL, &error);
     assert_equal_int(results, error, 0, "str_to_uint64 returned nonzero error");
     assert_equal_uint64_t(results, n, 32768, "str_to_uint64 returned incorrect value");
@@ -172,34 +184,34 @@ void test_blocks(test_results *results)
 
 void test_type_inference(test_results *results)
 {
-    char *s;
+    char32_t s[16];
     char type, prev_type;
     int64_t i = 0;
     uint64_t u = 0;
 
-    s = "123";
+    str_to_char32(s, "123");
     prev_type = '*';
     type = classify_type(s, '.', 'e', &i, &u, prev_type);
     assert_equal_char(results, type, 'Q', "inferred type is not 'Q'");
     assert_equal_uint64_t(results, u, 123, "value in u is not 123");
 
-    s = "1234";
+    str_to_char32(s, "1234");
     prev_type = 'd';
     type = classify_type(s, '.', 'e', &i, &u, prev_type);
     assert_equal_char(results, type, 'd', "inferred type is not 'd'");
 
-    s = "12X3";
+    str_to_char32(s, "12X3");
     prev_type = 'd';
     type = classify_type(s, '.', 'e', &i, &u, prev_type);
     assert_equal_char(results, type, 'S', "inferred type is not 'S'");
 
-    s = "-12345";
+    str_to_char32(s, "-12345");
     prev_type = '*';
     type = classify_type(s, '.', 'e', &i, &u, prev_type);
     assert_equal_char(results, type, 'q', "inferred type is not 'q'");
     assert_equal_int64_t(results, i, -12345, "value in u is not -12345");
 
-    s = "-12345";
+    str_to_char32(s, "-12345");
     prev_type = 'Q';
     type = classify_type(s, '.', 'e', &i, &u, prev_type);
     assert_equal_char(results, type, 'q', "inferred type is not 'q'");
@@ -278,13 +290,27 @@ int main(int argc, char *argv[])
     int status;
 
 
+    printf("### initializing\n");
     test_results_initialize(&results, "errlog-" __FILE__ ".out");
 
+    printf("### running tests\n");
+
+    printf("test_conversions\n");
     test_conversions(&results);
+
+    printf("test_str_to\n");
     test_str_to(&results);
+
+    printf("test_blocks\n");
     test_blocks(&results);
+
+    printf("test_field_types\n");
     test_field_types(&results);
+
+    printf("test_type_inference\n");
     test_type_inference(&results);
+
+    printf("### finished running tests\n");
 
     test_results_print_summary(&results, __FILE__);
     test_results_finalize(&results);

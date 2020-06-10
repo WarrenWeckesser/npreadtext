@@ -44,7 +44,7 @@ typedef struct _python_file_by_line {
     int32_t line_number;
 
     /* Boolean: has the end of the file been reached? */
-    int reached_eof;
+    bool reached_eof;
 
     /* Python str object holding the line most recently read from the file. */
     PyObject *line;
@@ -88,7 +88,7 @@ int32_t fb_line_number(void *fb)
  */
 
 static
-int _fb_load(void *fb)
+uint32_t _fb_load(void *fb)
 {
     //printf("_fb_load: starting\n");
     //printf("FB(fb)->reached_eof = %d\n", FB(fb)->reached_eof);
@@ -147,7 +147,7 @@ int _fb_load(void *fb)
 }
 
 /*
- *  int32_t fb_fetch(file_buffer *fb)
+ *  char32_t fb_fetch(file_buffer *fb)
  *
  *  Get a single character from the current line, and advance the
  *  buffer pointer.
@@ -161,9 +161,9 @@ int _fb_load(void *fb)
  */
 
 static
-int32_t fb_fetch(void *fb)
+char32_t fb_fetch(void *fb)
 {
-    int32_t c;
+    char32_t c;
   
     //printf("fb_fetch: starting, fb = %lld\n", fb);
 
@@ -174,9 +174,9 @@ int32_t fb_fetch(void *fb)
         return STREAM_EOF;
     }
 
-    c = (int32_t) PyUnicode_READ(FB(fb)->unicode_kind,
-                                 FB(fb)->unicode_data,
-                                 FB(fb)->current_buffer_pos);
+    c = (char32_t) PyUnicode_READ(FB(fb)->unicode_kind,
+                                  FB(fb)->unicode_data,
+                                  FB(fb)->current_buffer_pos);
     FB(fb)->current_buffer_pos++;
     if (c == '\n') {
         FB(fb)->line_number++;
@@ -186,16 +186,16 @@ int32_t fb_fetch(void *fb)
 
 
 /*
- *  int32_t fb_next(file_buffer *fb)
+ *  char32_t fb_next(file_buffer *fb)
  *
  *  Returns the next byte in the buffer, but does not advance the pointer.
  *  If the next two characters in the buffer are "\r\n", '\n' is returned.
  */
 
 static
-int32_t fb_next(void *fb)
+char32_t fb_next(void *fb)
 {
-    int32_t c;
+    char32_t c;
 
     if (_fb_load(fb) != 0) {
         return STREAM_ERROR;
@@ -204,9 +204,9 @@ int32_t fb_next(void *fb)
         return STREAM_EOF;
     }
 
-    c = (int32_t) PyUnicode_READ(FB(fb)->unicode_kind,
-                                 FB(fb)->unicode_data,
-                                 FB(fb)->current_buffer_pos);
+    c = (char32_t) PyUnicode_READ(FB(fb)->unicode_kind,
+                                  FB(fb)->unicode_data,
+                                  FB(fb)->current_buffer_pos);
     return c;
 }
 
@@ -219,9 +219,9 @@ int32_t fb_next(void *fb)
  */
 
 static
-int32_t fb_skipline(void *fb)
+uint32_t fb_skipline(void *fb)
 {
-    int32_t c;
+    char32_t c;
 
     c = fb_next(fb);
     if (c == STREAM_ERROR) {
@@ -251,10 +251,10 @@ int32_t fb_skipline(void *fb)
  */
 
 static
-int32_t fb_skiplines(void *fb, int num_lines)
+uint32_t fb_skiplines(void *fb, int num_lines)
 {
     int32_t status;
-    int32_t c;
+    char32_t c;
 
     while (num_lines > 0) {
         status = fb_skipline(fb);
@@ -265,7 +265,7 @@ int32_t fb_skiplines(void *fb, int num_lines)
         if (c == STREAM_EOF) {
             break;
         }
-        if (c < 0) {
+        if (c == STREAM_ERROR) {
             // Error
             return c;
         }
@@ -356,6 +356,7 @@ stream *stream_python_file_by_line(PyObject *obj, PyObject *encoding)
 
     strm = (stream *) malloc(sizeof(stream));
     if (strm == NULL) {
+        // XXX Don't print to stderr!
         fprintf(stderr, "stream_file: malloc() failed.\n");
         free(fb);
         return NULL;

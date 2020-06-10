@@ -3,10 +3,10 @@
 #include <stdlib.h>
 #include <stdbool.h>
 
+#include "typedefs.h"
 #include "stream.h"
 
 #include "sizes.h"
-#include "constants.h"
 #include "tokenize.h"
 #include "error_types.h"
 #include "parser_config.h"
@@ -75,25 +75,26 @@
  *  * The row has more fields than MAX_NUM_COLUMNS.
  */
 
-static char **tokenize_sep(stream *s, char *word_buffer, int word_buffer_size,
-                           parser_config *pconfig,
-                           int *p_num_fields,
-                           int *p_error_type)
+static char32_t **tokenize_sep(stream *s, char32_t *word_buffer,
+                               int word_buffer_size,
+                               parser_config *pconfig,
+                               int *p_num_fields,
+                               int *p_error_type)
 {
     int n;
-    int32_t c;
+    char32_t c;
     int state;
-    char *words[MAX_NUM_COLUMNS];
-    char *p_word_start, *p_word_end;
+    char32_t *words[MAX_NUM_COLUMNS];
+    char32_t *p_word_start, *p_word_end;
     int field_number;
-    char **result;
+    char32_t **result;
 
-    char comment_char = pconfig->comment;
-    char sep_char = pconfig->delimiter;
-    char quote_char = pconfig->quote;
-    int ignore_leading_spaces = pconfig->ignore_leading_spaces;
-    int ignore_trailing_spaces = pconfig->ignore_trailing_spaces;
-    int allow_embedded_newline = pconfig->allow_embedded_newline;
+    char32_t comment_char = pconfig->comment;
+    char32_t sep_char = pconfig->delimiter;
+    char32_t quote_char = pconfig->quote;
+    bool ignore_leading_spaces = pconfig->ignore_leading_spaces;
+    bool ignore_trailing_spaces = pconfig->ignore_trailing_spaces;
+    bool allow_embedded_newline = pconfig->allow_embedded_newline;
     int trailing_space_count = 0;
 
     *p_error_type = 0;
@@ -206,7 +207,7 @@ static char **tokenize_sep(stream *s, char *word_buffer, int word_buffer_size,
     }
 
     *p_num_fields = field_number;
-    result = (char **) malloc(sizeof(char *) * field_number);
+    result = (char32_t **) malloc(sizeof(char32_t *) * field_number);
     if (result == NULL) {
         *p_error_type = ERROR_OUT_OF_MEMORY;
         return NULL;
@@ -229,22 +230,22 @@ static char **tokenize_sep(stream *s, char *word_buffer, int word_buffer_size,
  *      This needs to be refined.
  */
 
-static char **tokenize_ws(stream *s, char *word_buffer, int word_buffer_size,
-                          parser_config *pconfig,
-                          int *p_num_fields,
-                          int *p_error_type)
+static char32_t **tokenize_ws(stream *s, char32_t *word_buffer, int word_buffer_size,
+                            parser_config *pconfig,
+                            int *p_num_fields,
+                            int *p_error_type)
 {
     int n;
-    int32_t c;
+    char32_t c;
     int state;
-    char *words[MAX_NUM_COLUMNS];
-    char *p_word_start, *p_word_end;
+    char32_t *words[MAX_NUM_COLUMNS];
+    char32_t *p_word_start, *p_word_end;
     int field_number;
-    char **result;
+    char32_t **result;
 
-    char comment_char = pconfig->comment;
-    char quote_char = pconfig->quote;
-    int allow_embedded_newline = pconfig->allow_embedded_newline;
+    char32_t comment_char = pconfig->comment;
+    char32_t quote_char = pconfig->quote;
+    bool allow_embedded_newline = pconfig->allow_embedded_newline;
 
     *p_error_type = 0;
 
@@ -367,7 +368,7 @@ static char **tokenize_ws(stream *s, char *word_buffer, int word_buffer_size,
 
     *p_num_fields = field_number;
 
-    result = (char **) malloc(sizeof(char *) * field_number);
+    result = (char32_t **) malloc(sizeof(char32_t *) * field_number);
     if (result == NULL) {
         *p_error_type = ERROR_OUT_OF_MEMORY;
         return NULL;
@@ -381,10 +382,10 @@ static char **tokenize_ws(stream *s, char *word_buffer, int word_buffer_size,
 }
 
 
-char **tokenize(stream *s, char *word_buffer, int word_buffer_size,
-                parser_config *pconfig, int *p_num_fields, int *p_error_type)
+char32_t **tokenize(stream *s, char32_t *word_buffer, int word_buffer_size,
+                  parser_config *pconfig, int *p_num_fields, int *p_error_type)
 {
-    char **result;
+    char32_t **result;
 
     if ((pconfig->delimiter == '\0') || (pconfig->delimiter == ' ')) {
         result = tokenize_ws(s, word_buffer, word_buffer_size,

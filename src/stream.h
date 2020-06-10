@@ -3,8 +3,10 @@
 
 #include <stdint.h>
 
-#define STREAM_EOF   -1
-#define STREAM_ERROR -2
+#include "typedefs.h"
+
+#define STREAM_EOF   4294967295  // 2**32-1
+#define STREAM_ERROR 4294967294  // 2**32-2
 
 #define RESTORE_NOT     0
 #define RESTORE_INITIAL 1
@@ -13,10 +15,10 @@
 
 typedef struct _stream {
     void *stream_data;
-    int32_t (*stream_fetch)(void *sdata);
-    int32_t (*stream_peek)(void *sdata);
-    int32_t (*stream_skipline)(void *sdata);
-    int32_t (*stream_skiplines)(void *sdata, int n);
+    char32_t (*stream_fetch)(void *sdata);
+    char32_t (*stream_peek)(void *sdata);
+    uint32_t (*stream_skipline)(void *sdata);
+    uint32_t (*stream_skiplines)(void *sdata, int n);
     int (*stream_linenumber)(void *sdata);
     int (*stream_lineoffset)(void *sdata);
     long int (*stream_tell)(void *sdata);

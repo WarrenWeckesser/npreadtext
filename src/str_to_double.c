@@ -8,7 +8,9 @@
 #include <errno.h>
 #include <math.h>
 #include <float.h>
+#include <stdbool.h>
 
+#include "typedefs.h"
 
 //#define isdigit(c) (((c) >= '0') && ((c) <= '9'))
 //#define isspace(c) (((c) == ' ') || ((c) == '\t'))
@@ -19,14 +21,14 @@ extern double pow10table_size;
 extern double pow10table[];
 
 
-double str_to_double(const char *str, char **end, int *error,
-                     char decimal, char sci, int skip_trailing)
+double str_to_double(const char32_t *str, char32_t **end, int *error,
+                     char32_t decimal, char32_t sci, bool skip_trailing)
 {
     double value;
     int negative, negative_exp;
-    char *p = (char *) str;
+    char32_t *p = (char32_t *) str;
     int n;
-    int has_leading_zero;
+    bool has_leading_zero;
     int num_digits;
     int num_decimals;
 
@@ -49,10 +51,10 @@ double str_to_double(const char *str, char **end, int *error,
     }
 
     // Skip leading zeros.
-    has_leading_zero = 0;
+    has_leading_zero = false;
     if (*p == '0') {
         ++p;
-        has_leading_zero = 1;
+        has_leading_zero = true;
     }
     while (*p == '0') {
         ++p;
@@ -105,7 +107,7 @@ double str_to_double(const char *str, char **end, int *error,
     // Check for an exponent.
     n = 0;
     negative_exp = 0;
-    if (toupper(*p) == sci) {
+    if ((char32_t) toupper(*p) == sci) {
         ++p;
 
         // Get the sign.

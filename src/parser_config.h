@@ -2,6 +2,10 @@
 #ifndef _PARSER_CONFIG_H_
 #define _PARSER_CONFIG_H_
 
+#include <stdint.h>
+#include <stdbool.h>
+#include "typedefs.h"
+
 typedef struct _parser_config {
 
     /*
@@ -9,7 +13,7 @@ typedef struct _parser_config {
      *  Typically ',', ' ', '\t', or '\0'.
      *  '\0' means each contiguous span of spaces is one delimiter.
      */
-    char delimiter;
+    char32_t delimiter;
 
     /*
      *  Character used to quote fields.
@@ -17,27 +21,27 @@ typedef struct _parser_config {
      *  To disable the special handling of a quote character, set this to a
      *  value that doesn't occur in the input file (e.g. '\0').
      */
-    char quote;
+    char32_t quote;
 
     /*
      *  Ignore spaces at the beginning of a field.  Only relevant for
      *  text fields, and only when the delimiter is not whitespace.
      *  Spaces in quotes are never ignored.
      */
-    int ignore_leading_spaces;
+    bool ignore_leading_spaces;
 
     /*
      *  Ignore spaces at the end of a field.  Only relevant for
      *  text fields, and only when the delimiter is not whitespace.
      *  Spaces in quotes are never ignored.
      */
-    int ignore_trailing_spaces;
+    bool ignore_trailing_spaces;
 
     /*
      *  Ignore lines that are all spaces.  Only used when the delimiter
      *  is \0.
      */
-    int ignore_blank_lines;
+    bool ignore_blank_lines;
 
     /*
      *  Character that indicates the start of a comment.
@@ -45,7 +49,7 @@ typedef struct _parser_config {
      *  When encountered in a line and not inside quotes, all character
      *  from the comment character to the end of the line are ignored.
      */
-    char comment;
+    char32_t comment;
 
     /*
      *  A boolean value (0 or 1).  If 1, quoted fields may span
@@ -55,20 +59,20 @@ typedef struct _parser_config {
      *  is one "row", containing three fields: 100, 200 and "FOO\nBAR".
      *  If 0, the parser considers an unclosed quote to be an error. (XXX Check!)
      */
-    int allow_embedded_newline;
+    bool allow_embedded_newline;
 
     /*
      *  The decimal point character.
      *  Most commonly '.', but ',' is sometimes used.
      */
-    char decimal;
+    char32_t decimal;
 
     /*
      *  The character used to indicate the exponent in scientific notation.
      *  Typically 'E' or 'e', but 'D' (or 'd') are sometimes used (mainly in
      *  Fortran code).  When parsing, the case is ignored.
      */
-    char sci;
+    char32_t sci;
 
     /*
      *  If strict_num_fields is True, all rows in the file are expected
@@ -82,7 +86,7 @@ typedef struct _parser_config {
      *  fields in the rows.  Rows with fewer than the maximum will be extended
      *  with missing values.
      */
-     int strict_num_fields;
+     bool strict_num_fields;
 
 } parser_config;
 

@@ -1,6 +1,7 @@
 #ifndef CTESTIFY_H
 #define CTESTIFY_H
 
+#include "../typedefs.h"
 #include <stdio.h>
 
 typedef struct _test_results {
@@ -20,13 +21,14 @@ void _assert_true(test_results *results, int value, char *msg, char *filename,
 void _assert_equal_pointer(test_results *results, void *value1, void *value2,
                           char *msg, char *filename, int linenumber);
 void _assert_equal_str(test_results *results, char *value1, char *value2,
-                      char *msg, char *filename, int linenumber);
+                       char *msg, char *filename, int linenumber);
 
 #include "ctestify_assert.h"
 
 #define assert_true(A, B, C) _assert_true(A, B, C, __FILE__, __LINE__)
 #define assert_equal_pointer(A, B, C, D) _assert_equal_pointer(A, B, C, D, __FILE__, __LINE__)
 #define assert_equal_str(A, B, C, D) _assert_equal_str(A, B, C, D, __FILE__, __LINE__)
+#define assert_equal_char32(A, B, C, D) _assert_equal_char32(A, B, C, D, __FILE__, __LINE__)
 
 
 #endif

@@ -2,12 +2,17 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
+#include <stdlib.h>
 #include "ctestify.h"
 
 
 void test_results_initialize(test_results *results, char *errfilename)
 {
     FILE *fp = fopen(errfilename, "w");
+    if (fp == NULL) {
+        fprintf(stderr, "Unable to open '%s'\n", errfilename);
+        exit(-1);
+    }
     results->num_assertions = 0;
     results->num_failed = 0;
     results->errfilename = errfilename;
@@ -51,6 +56,7 @@ void _assert_true(test_results *results, int value, char *msg, char *filename, i
     if (!value) {
         fprintf(results->errfile, "Assertion failed: %s:%d  %s\n", filename, linenumber, msg);
         fprintf(results->errfile, "... value is not true: %d\n", value);
+        fflush(results->errfile);
         results->num_failed += 1;
     }
 }
@@ -63,6 +69,7 @@ void _assert_equal_pointer(test_results *results, void *value1, void *value2,
     if (value1 != value2) {
         fprintf(results->errfile, "Assertion failed: %s:%d  %s\n", filename, linenumber, msg);
         fprintf(results->errfile, "... pointer values not equal\n");
+        fflush(results->errfile);
         results->num_failed += 1;
     }
 }
@@ -75,7 +82,27 @@ void _assert_equal_str(test_results *results, char *value1, char *value2,
     if (strcmp(value1, value2) != 0) {
         fprintf(results->errfile, "Assertion failed: %s:%d  %s\n", filename, linenumber, msg);
         fprintf(results->errfile, "... str values not equal: '%s' and '%s'\n", value1, value2);
+        fflush(results->errfile);
         results->num_failed += 1;
     }
 }
 
+
+void _assert_equal_char32(test_results *results, char32_t *value1, char32_t *value2,
+                          char *msg, char *filename, int linenumber)
+{
+    bool fail = false;
+    results->num_assertions += 1;
+    while ((*value1 != 0) && (*value2 != 0)) {
+        if (*value1 != *value2) {
+            fail = true;
+            break;
+        }
+    }
+    if (fail) {
+        fprintf(results->errfile, "Assertion failed: %s:%d  %s\n", filename, linenumber, msg);
+        fprintf(results->errfile, "... char32 values not equal: '%u' and '%u'\n", *value1, *value2);
+        fflush(results->errfile);
+        results->num_failed += 1;
+    }
+}

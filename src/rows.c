@@ -9,7 +9,6 @@
 #include <stdbool.h>
 
 #include "stream.h"
-#include "constants.h"
 #include "tokenize.h"
 #include "sizes.h"
 #include "conversions.h"
@@ -90,7 +89,7 @@ void *read_rows(stream *s, int *nrows,
 {
     char *data_ptr;
     int current_num_fields;
-    char **result;
+    char32_t **result;
     size_t row_size;
     size_t size;
 
@@ -98,7 +97,7 @@ void *read_rows(stream *s, int *nrows,
     blocks_data *blks = NULL;
 
     int row_count;
-    char word_buffer[WORD_BUFFER_SIZE];
+    char32_t word_buffer[WORD_BUFFER_SIZE];
     int tok_error_type;
 
     int actual_num_fields = -1;
@@ -339,11 +338,34 @@ void *read_rows(stream *s, int *nrows,
                 }
                 data_ptr += field_types[f].itemsize;
             }
-            else {
+            else if (typecode == 'S') {
                 // String
                 memset(data_ptr, 0, field_types[f].itemsize);
                 if (k < current_num_fields) {
-                    strncpy(data_ptr, result[k], field_types[f].itemsize);
+                    //strncpy(data_ptr, result[k], field_types[f].itemsize);
+                    size_t i = 0;
+                    while (i < (size_t) field_types[f].itemsize && result[k][i]) {
+                        data_ptr[i] = result[k][i];
+                        ++i;
+                    }
+                    if (i < (size_t) field_types[f].itemsize) {
+                        data_ptr[i] = '\0';
+                    }
+                }
+                data_ptr += field_types[f].itemsize;
+            }
+            else {  // typecode == 'U'
+                memset(data_ptr, 0, field_types[f].itemsize);
+                if (k < current_num_fields) {
+                    size_t i = 0;
+                    // XXX The '4's in the following are sizeof(char32_t).
+                    while (i < (size_t) field_types[f].itemsize/4 && result[k][i]) {
+                        *(char32_t *)(data_ptr + 4*i) = result[k][i];
+                        ++i;
+                    }
+                    if (i < (size_t) field_types[f].itemsize/4) {
+                        *(char32_t *)(data_ptr + 4*i) = '\0';
+                    }
                 }
                 data_ptr += field_types[f].itemsize;
             }
