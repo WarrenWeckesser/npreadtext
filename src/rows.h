@@ -2,6 +2,8 @@
 #ifndef _ROWS_H_
 #define _ROWS_H_
 
+#define PY_SSIZE_T_CLEAN
+#include <Python.h>
 #include <stdio.h>
 
 #include "stream.h"
@@ -35,6 +37,7 @@ void *read_rows(stream *s, int *nrows,
                 parser_config *pconfig,
                 int *usecols, int num_usecols,
                 int skiplines,
+                PyObject *converters,
                 void *data_array,
                 int *num_cols,
                 read_error_type *read_error);

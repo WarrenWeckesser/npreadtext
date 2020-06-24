@@ -13,5 +13,6 @@
 #define ERROR_TOO_MANY_FIELDS          22
 #define ERROR_NO_DATA                  23
 #define ERROR_BAD_FIELD                30
+#define ERROR_CONVERTER_FAILED         40
 
 #endif

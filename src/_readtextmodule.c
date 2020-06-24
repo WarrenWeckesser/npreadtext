@@ -17,6 +17,8 @@
 #include "rows.h"
 #include "error_types.h"
 
+#define LOADTXT_COMPATIBILITY true
+
 
 static void
 raise_analyze_exception(int nrows, char *filename)
@@ -70,6 +72,17 @@ raise_read_exception(read_error_type *read_error)
                      read_error->line_number, read_error->field_number + 1,
                      typecode_to_str(read_error->typecode));
     }
+    else if (read_error->error_type == ERROR_CHANGED_NUMBER_OF_FIELDS) {
+        PyObject *exc = LOADTXT_COMPATIBILITY ? PyExc_ValueError : PyExc_RuntimeError;
+        PyErr_Format(exc,
+                     "Number of fields changed, line %d",
+                     read_error->line_number);
+    }
+    else if (read_error->error_type == ERROR_CONVERTER_FAILED) {
+        PyErr_Format(PyExc_RuntimeError,
+                     "converter failed; line %d, field %d",
+                     read_error->line_number, read_error->field_number + 1);
+    }
     else {
         // Some other error type
         PyErr_Format(PyExc_RuntimeError, "line %d: error type %d",
@@ -97,6 +110,7 @@ raise_read_exception(read_error_type *read_error)
 static PyObject *
 _readtext_from_stream(stream *s, char *filename, parser_config *pc,
                       PyObject *usecols, int skiprows, int max_rows,
+                      PyObject *converters,
                       PyObject *dtype, int num_dtype_fields, char *codes, int32_t *sizes)
 {
     PyObject *arr = NULL;
@@ -192,7 +206,9 @@ _readtext_from_stream(stream *s, char *filename, parser_config *pc,
         read_error_type read_error;
         int num_rows = nrows;
         void *result = read_rows(s, &num_rows, num_fields, ft, pc,
-                                 cols, ncols, skiprows, PyArray_DATA(arr),
+                                 cols, ncols, skiprows,
+                                 converters,
+                                 PyArray_DATA(arr),
                                  &num_cols, &read_error);
         if (read_error.error_type != 0) {
             free(ft);
@@ -207,8 +223,8 @@ _readtext_from_stream(stream *s, char *filename, parser_config *pc,
         int ndim;
         int num_rows = nrows;
         void *result = read_rows(s, &num_rows, num_fields, ft, pc,
-                                 cols, ncols, skiprows, NULL,
-                                 &num_cols, &read_error);
+                                 cols, ncols, skiprows, converters,
+                                 NULL, &num_cols, &read_error);
         if (read_error.error_type != 0) {
             free(ft);
             raise_read_exception(&read_error);
@@ -216,7 +232,7 @@ _readtext_from_stream(stream *s, char *filename, parser_config *pc,
         }
 
         shape[0] = num_rows;
-        if (!PyDataType_ISEXTENDED(dtype)) {
+        if (PyDataType_ISSTRING(dtype) || !PyDataType_ISEXTENDED(dtype)) {
             ndim = 2;
             if (num_rows > 0) {
                 shape[1] = num_cols;
@@ -254,7 +270,7 @@ _readtext_from_filename(PyObject *self, PyObject *args, PyObject *kwargs)
 {
     static char *kwlist[] = {"filename", "delimiter", "comment", "quote",
                              "decimal", "sci", "usecols", "skiprows",
-                             "max_rows",
+                             "max_rows", "converters",
                              "dtype", "codes", "sizes",
                              "encoding", NULL};
     char *filename;
@@ -267,6 +283,7 @@ _readtext_from_filename(PyObject *self, PyObject *args, PyObject *kwargs)
     int max_rows;
 
     PyObject *usecols;
+    PyObject *converters;
 
     PyObject *dtype;
     PyObject *codes;
@@ -281,10 +298,10 @@ _readtext_from_filename(PyObject *self, PyObject *args, PyObject *kwargs)
     PyObject *arr = NULL;
     int num_dtype_fields;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|$sssssOiiOOOO", kwlist,
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|$sssssOiiOOOOO", kwlist,
                                      &filename, &delimiter, &comment, &quote,
                                      &decimal, &sci, &usecols, &skiprows,
-                                     &max_rows,
+                                     &max_rows, &converters,
                                      &dtype, &codes, &sizes, &encoding)) {
         return NULL;
     }
@@ -324,6 +341,7 @@ _readtext_from_filename(PyObject *self, PyObject *args, PyObject *kwargs)
     }
 
     arr = _readtext_from_stream(s, filename, &pc, usecols, skiprows, max_rows,
+                                converters,
                                 dtype, num_dtype_fields, codes_ptr, sizes_ptr);
 
     stream_close(s, RESTORE_NOT);
@@ -336,7 +354,7 @@ _readtext_from_file_object(PyObject *self, PyObject *args, PyObject *kwargs)
 {
     static char *kwlist[] = {"file", "delimiter", "comment", "quote",
                              "decimal", "sci", "usecols", "skiprows",
-                             "max_rows",
+                             "max_rows", "converters",
                              "dtype", "codes", "sizes",
                              "encoding", NULL};
     PyObject *file;
@@ -348,6 +366,7 @@ _readtext_from_file_object(PyObject *self, PyObject *args, PyObject *kwargs)
     int skiprows;
     int max_rows;
     PyObject *usecols;
+    PyObject *converters;
 
     PyObject *dtype;
     PyObject *codes;
@@ -361,10 +380,10 @@ _readtext_from_file_object(PyObject *self, PyObject *args, PyObject *kwargs)
     PyObject *arr = NULL;
     int num_dtype_fields;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|$sssssOiiOOOO", kwlist,
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|$sssssOiiOOOOO", kwlist,
                                      &file, &delimiter, &comment, &quote,
                                      &decimal, &sci, &usecols, &skiprows,
-                                     &max_rows,
+                                     &max_rows, &converters,
                                      &dtype, &codes, &sizes, &encoding)) {
         return NULL;
     }
@@ -404,6 +423,7 @@ _readtext_from_file_object(PyObject *self, PyObject *args, PyObject *kwargs)
     }
 
     arr = _readtext_from_stream(s, NULL, &pc, usecols, skiprows, max_rows,
+                                converters,
                                 dtype, num_dtype_fields, codes_ptr, sizes_ptr);
     stream_close(s, RESTORE_NOT);
     return arr;

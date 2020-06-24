@@ -28,10 +28,10 @@ def _dtypestr2fmt(st):
 
     fmt = _dtype_str_map.get(st)
     if fmt is None:
-        if st == "M8[us]":
-            fmt = 'U'  # Temporary experiment
+        if st.startswith('U'):
+            fmt = st[1:] + 'U'
         elif st.startswith('S'):
-            fmt = st[1:] + 's'
+            fmt = st[1:] + 'S'
         else:
             raise ValueError('_dtypestr2fmt: unsupported dtype string: %s' %
                              (st,))
@@ -90,12 +90,12 @@ def _dtypestr2fmt2(st):
 
     fmt = _dtype_str_map2.get(st)
     if fmt is None:
-        if st == "M8[us]":
-            fmt = ('U', 8)  # Temporary experiment
+        if st.startswith('U'):
+            fmt = ('U', 4*int(st[1:]))
         elif st.startswith('S'):
             fmt = ('s', int(st[1:]))
         else:
-            raise ValueError('_dtypestr2fmt: unsupported dtype string: %s' %
+            raise ValueError('_dtypestr2fmt2: unsupported dtype string: %s' %
                              (st,))
     return fmt
 

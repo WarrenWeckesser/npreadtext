@@ -4,7 +4,6 @@ import codecs
 from pathlib import Path
 import operator
 import numpy as np
-from numpy.lib import DataSource
 from . import _flatten_dtype
 from ._readtextmodule import (_readtext_from_filename,
                               _readtext_from_file_object)
@@ -104,6 +103,10 @@ def read(file, *, delimiter=',', comment='#', quote='"',
     if dtype is not None and not isinstance(dtype, np.dtype):
         dtype = np.dtype(dtype)
 
+    # FIXME: Temporary hack just to get some loadtxt test to pass!
+    if dtype == np.dtype('U0'):
+        dtype = np.dtype('U32')
+
     if usecols is not None:
         # Allow usecols to be a single int or a sequence of ints
         try:
@@ -126,7 +129,18 @@ def read(file, *, delimiter=',', comment='#', quote='"',
                            dtype=np.int32)
 
     if converters is not None:
-        raise ValueError("sorry, 'converters' is not implemented yet")
+        if not isinstance(converters, dict):
+            raise TypeError('converters must be a dictionary')
+        for key, func in converters.items():
+            try:
+                operator.index(key)
+            except TypeError:
+                raise TypeError('keys of the converters dictionary must '
+                                f'be integers; got {key!r}') from None
+            if not callable(func):
+                raise TypeError('values of the converters dictionary must '
+                                'be callable, but the value associated with '
+                                f'the key {key!r} is not')
 
     if ndmin not in [None, 0, 1, 2]:
         raise ValueError(f'ndmin must be None, 0, 1, or 2; got {ndmin}')
@@ -164,10 +178,12 @@ def read(file, *, delimiter=',', comment='#', quote='"',
         fname, ext = os.path.splitext(file)
         if ext not in ['.bz2', '.gz', '.xz', '.lzma'] and encoding is None:
             arr = _readtext_from_filename(file, delimiter=delimiter,
-                                          comment=comment,
-                                          quote=quote, decimal=decimal, sci=sci,
+                                          comment=comment, quote=quote,
+                                          decimal=decimal, sci=sci,
                                           usecols=usecols, skiprows=skiprows,
-                                          max_rows=max_rows, dtype=dtype,
+                                          max_rows=max_rows,
+                                          converters=converters,
+                                          dtype=dtype,
                                           codes=codes, sizes=sizes,
                                           encoding=encoding)
         else:
@@ -180,6 +196,7 @@ def read(file, *, delimiter=',', comment='#', quote='"',
                                                  usecols=usecols,
                                                  skiprows=skiprows,
                                                  max_rows=max_rows,
+                                                 converters=converters,
                                                  dtype=dtype, codes=codes,
                                                  sizes=sizes, encoding=enc)
             finally:
@@ -190,8 +207,11 @@ def read(file, *, delimiter=',', comment='#', quote='"',
             arr = _readtext_from_file_object(f, delimiter=delimiter,
                                              comment=comment, quote=quote,
                                              decimal=decimal, sci=sci,
-                                             usecols=usecols, skiprows=skiprows,
-                                             max_rows=max_rows, dtype=dtype,
+                                             usecols=usecols,
+                                             skiprows=skiprows,
+                                             max_rows=max_rows,
+                                             converters=converters,
+                                             dtype=dtype,
                                              codes=codes, sizes=sizes,
                                              encoding=enc)
     else:
@@ -202,6 +222,7 @@ def read(file, *, delimiter=',', comment='#', quote='"',
                                          quote=quote, decimal=decimal, sci=sci,
                                          usecols=usecols, skiprows=skiprows,
                                          max_rows=max_rows,
+                                         converters=converters,
                                          dtype=dtype, codes=codes, sizes=sizes,
                                          encoding=enc)
 

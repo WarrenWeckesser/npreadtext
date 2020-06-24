@@ -1,6 +1,9 @@
 
 #define _XOPEN_SOURCE 700
 
+#define PY_SSIZE_T_CLEAN
+#include <Python.h>
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -44,6 +47,26 @@ size_t compute_row_size(int actual_num_fields,
 }
 
 
+PyObject *call_converter_function(PyObject *func, char32_t *token)
+{
+    Py_ssize_t tokenlen = 0;
+    while (token[tokenlen]) {
+        ++tokenlen;
+    }
+    PyObject *s = PyUnicode_FromKindAndData(PyUnicode_4BYTE_KIND, token, tokenlen);
+    if (s == NULL) {
+        // fprintf(stderr, "*** PyUnicode_FromKindAndData failed ***\n");
+        return s;
+    }
+    PyObject *result = PyObject_CallFunctionObjArgs(func, s, NULL);
+    Py_DECREF(s);
+    if (result == NULL) {
+        // fprintf(stderr, "*** PyObject_CallFunctionObjArgs failed ***\n");
+    }
+    return result;
+}
+
+
 /*
  *  XXX Handle errors in any of the functions called by read_rows().
  *
@@ -71,6 +94,8 @@ size_t compute_row_size(int actual_num_fields,
  *  int num_usecols
  *      Length of the array `usecols`.  Ignored if `usecols` is NULL.
  *  int skiplines
+ *  PyObject *converters
+ *      dicitionary of converters
  *  void *data_array
  *  int *num_cols
  *      The actual number of columns (or fields) of the data being returned.
@@ -83,6 +108,7 @@ void *read_rows(stream *s, int *nrows,
                 parser_config *pconfig,
                 int32_t *usecols, int num_usecols,
                 int skiplines,
+                PyObject *converters,
                 void *data_array,
                 int *num_cols,
                 read_error_type *read_error)
@@ -92,6 +118,7 @@ void *read_rows(stream *s, int *nrows,
     char32_t **result;
     size_t row_size;
     size_t size;
+    PyObject **conv_funcs = NULL;
 
     bool use_blocks;
     blocks_data *blks = NULL;
@@ -145,12 +172,55 @@ void *read_rows(stream *s, int *nrows,
                 // first line of data.
                 actual_num_fields = current_num_fields;
             }
+
             *num_cols = actual_num_fields;
             row_size = compute_row_size(actual_num_fields,
                                         num_field_types, field_types);
 
             if (usecols == NULL) {
                 num_usecols = actual_num_fields;
+            }
+            else {
+                // Normalize the values in usecols.
+                for (j = 0; j < num_usecols; ++j) {
+                    if (usecols[j] < 0) {
+                        usecols[j] += current_num_fields;
+                    }
+                    // XXX Check that the value is between 0 and current_num_fields.
+                }
+            }
+
+            if (converters != Py_None) {
+                conv_funcs = calloc(num_usecols, sizeof(PyObject *));
+                if (conv_funcs == NULL) {
+                    read_error->error_type = ERROR_OUT_OF_MEMORY;
+                    return NULL;
+                }
+                for (j = 0; j < num_usecols; ++j) {
+                    PyObject *key;
+                    PyObject *func;
+                    // k is the column index of the field in the file.
+                    if (usecols == NULL) {
+                        k = j;
+                    }
+                    else {
+                        k = usecols[j];
+                    }
+
+                    // XXX Check for failure of PyLong_FromSsize_t...
+                    key = PyLong_FromSsize_t((Py_ssize_t) k);
+                    func = PyDict_GetItem(converters, key);
+                    Py_DECREF(key);
+                    if (func == NULL) {
+                        key = PyLong_FromSsize_t((Py_ssize_t) k - current_num_fields);
+                        func = PyDict_GetItem(converters, key);
+                        Py_DECREF(key);
+                    }
+                    if (func != NULL) {
+                        Py_INCREF(func);
+                        conv_funcs[j] = func;
+                    }
+                }
             }
 
             use_blocks = false;
@@ -164,6 +234,7 @@ void *read_rows(stream *s, int *nrows,
                 if (blks == NULL) {
                     // XXX Check for other clean up that might be necessary.
                     read_error->error_type = ERROR_OUT_OF_MEMORY;
+                    free(conv_funcs);
                     return NULL;
                 }
             }
@@ -184,6 +255,16 @@ void *read_rows(stream *s, int *nrows,
             }
         }
 
+        if (!usecols && (actual_num_fields != current_num_fields)) {
+            read_error->error_type = ERROR_CHANGED_NUMBER_OF_FIELDS;
+            read_error->line_number = stream_linenumber(s);
+            read_error->column_index = current_num_fields;
+            if (use_blocks) {
+                blocks_destroy(blks);
+            }
+            return NULL;
+        }
+
         if (use_blocks) {
             data_ptr = blocks_get_row_ptr(blks, row_count);
             if (data_ptr == NULL) {
@@ -197,6 +278,7 @@ void *read_rows(stream *s, int *nrows,
             int error = ERROR_OK;
             int f = (num_field_types == 1) ? 0 : j;
             char typecode = field_types[f].typecode;
+            PyObject *converted = NULL;
 
             /* k is the column index of the field in the file. */
             if (usecols == NULL) {
@@ -222,14 +304,33 @@ void *read_rows(stream *s, int *nrows,
             read_error->char_position = -1; // FIXME
             read_error->typecode = typecode;
 
-            /* XXX Handle error != 0 in the following cases. */
+            if (conv_funcs && conv_funcs[j]) {
+                converted = call_converter_function(conv_funcs[j], result[k]);
+                if (converted == NULL) {
+                    read_error->error_type = ERROR_CONVERTER_FAILED;
+                    break;
+                }
+            }
+
             if (typecode == 'b') {
                 int8_t x = 0;
                 if (k < current_num_fields) {
-                    x = (int8_t) str_to_int64(result[k], INT8_MIN, INT8_MAX, &error);
-                    if (error) {
-                        read_error->error_type = ERROR_BAD_FIELD;
-                        break;
+                    if (converted != NULL) {
+                        long long value = PyLong_AsLongLong(converted);
+                        if (value == -1) {
+                            if (PyErr_Occurred()) {
+                                read_error->error_type = ERROR_BAD_FIELD;
+                                break;
+                            }
+                        }
+                        x = (int8_t) value;  // FIXME: Check out of bounds!
+                    }
+                    else {
+                        x = (int8_t) str_to_int64(result[k], INT8_MIN, INT8_MAX, &error);
+                        if (error) {
+                            read_error->error_type = ERROR_BAD_FIELD;
+                            break;
+                        }
                     }
                 }
                 *(int8_t *) data_ptr = x;
@@ -238,10 +339,22 @@ void *read_rows(stream *s, int *nrows,
             else if (typecode == 'B') {
                 uint8_t x = 0;
                 if (k < current_num_fields) {
-                    x = (uint8_t) str_to_uint64(result[k], UINT8_MAX, &error);
-                    if (error) {
-                        read_error->error_type = ERROR_BAD_FIELD;
-                        break;
+                    if (converted != NULL) {
+                        size_t value = PyLong_AsSize_t(converted);
+                        if (value == (size_t)-1) {
+                            if (PyErr_Occurred()) {
+                                read_error->error_type = ERROR_BAD_FIELD;
+                                break;
+                            }
+                        }
+                        x = (uint8_t) value;  // FIXME: Check out of bounds!
+                    }
+                    else {
+                        x = (uint8_t) str_to_uint64(result[k], UINT8_MAX, &error);
+                        if (error) {
+                            read_error->error_type = ERROR_BAD_FIELD;
+                            break;
+                        }
                     }
                 }
                 *(uint8_t *) data_ptr = x;
@@ -250,10 +363,22 @@ void *read_rows(stream *s, int *nrows,
             else if (typecode == 'h') {
                 int16_t x = 0;
                 if (k < current_num_fields) {
-                    x = (int16_t) str_to_int64(result[k], INT16_MIN, INT16_MAX, &error);
-                    if (error) {
-                        read_error->error_type = ERROR_BAD_FIELD;
-                        break;
+                    if (converted != NULL) {
+                        long long value = PyLong_AsLongLong(converted);
+                        if (value == -1) {
+                            if (PyErr_Occurred()) {
+                                read_error->error_type = ERROR_BAD_FIELD;
+                                break;
+                            }
+                        }
+                        x = (int16_t) value;  // FIXME: Check out of bounds!
+                    }
+                    else {
+                        x = (int16_t) str_to_int64(result[k], INT16_MIN, INT16_MAX, &error);
+                        if (error) {
+                            read_error->error_type = ERROR_BAD_FIELD;
+                            break;
+                        }
                     }
                 }
                 *(int16_t *) data_ptr = x;
@@ -262,10 +387,22 @@ void *read_rows(stream *s, int *nrows,
             else if (typecode == 'H') {
                 uint16_t x = 0;
                 if (k < current_num_fields) {
-                    x = (uint16_t) str_to_uint64(result[k], UINT16_MAX, &error);
-                    if (error) {
-                        read_error->error_type = ERROR_BAD_FIELD;
-                        break;
+                    if (converted != NULL) {
+                        size_t value = PyLong_AsSize_t(converted);
+                        if (value == (size_t)-1) {
+                            if (PyErr_Occurred()) {
+                                read_error->error_type = ERROR_BAD_FIELD;
+                                break;
+                            }
+                        }
+                        x = (uint16_t) value;  // FIXME: Check out of bounds!
+                    }
+                    else {
+                        x = (uint16_t) str_to_uint64(result[k], UINT16_MAX, &error);
+                        if (error) {
+                            read_error->error_type = ERROR_BAD_FIELD;
+                            break;
+                        }
                     }
                 }
                 *(uint16_t *) data_ptr = x;
@@ -274,10 +411,22 @@ void *read_rows(stream *s, int *nrows,
             else if (typecode == 'i') {
                 int32_t x = 0;
                 if (k < current_num_fields) {
-                    x = (int32_t) str_to_int64(result[k], INT32_MIN, INT32_MAX, &error);
-                    if (error) {
-                        read_error->error_type = ERROR_BAD_FIELD;
-                        break;
+                    if (converted != NULL) {
+                        long long value = PyLong_AsLongLong(converted);
+                        if (value == -1) {
+                            if (PyErr_Occurred()) {
+                                read_error->error_type = ERROR_BAD_FIELD;
+                                break;
+                            }
+                        }
+                        x = (int32_t) value;  // FIXME: Check out of bounds!
+                    }
+                    else {
+                        x = (int32_t) str_to_int64(result[k], INT32_MIN, INT32_MAX, &error);
+                        if (error) {
+                            read_error->error_type = ERROR_BAD_FIELD;
+                            break;
+                        }
                     }
                 }
                 *(int32_t *) data_ptr = x;
@@ -286,10 +435,22 @@ void *read_rows(stream *s, int *nrows,
             else if (typecode == 'I') {
                 uint32_t x = 0;
                 if (k < current_num_fields) {
-                    x = (uint32_t) str_to_uint64(result[k], UINT32_MAX, &error);
-                    if (error) {
-                        read_error->error_type = ERROR_BAD_FIELD;
-                        break;
+                    if (converted != NULL) {
+                        size_t value = PyLong_AsSize_t(converted);
+                        if (value == (size_t)-1) {
+                            if (PyErr_Occurred()) {
+                                read_error->error_type = ERROR_BAD_FIELD;
+                                break;
+                            }
+                        }
+                        x = (uint32_t) value;  // FIXME: Check out of bounds!
+                    }
+                    else {
+                        x = (uint32_t) str_to_uint64(result[k], UINT32_MAX, &error);
+                        if (error) {
+                            read_error->error_type = ERROR_BAD_FIELD;
+                            break;
+                        }
                     }
                 }
                 *(uint32_t *) data_ptr = x;
@@ -298,10 +459,22 @@ void *read_rows(stream *s, int *nrows,
             else if (typecode == 'q') {
                 int64_t x = 0;
                 if (k < current_num_fields) {
-                    x = (int64_t) str_to_int64(result[k], INT64_MIN, INT64_MAX, &error);
-                    if (error) {
-                        read_error->error_type = ERROR_BAD_FIELD;
-                        break;
+                    if (converted != NULL) {
+                        long long value = PyLong_AsLongLong(converted);
+                        if (value == -1) {
+                            if (PyErr_Occurred()) {
+                                read_error->error_type = ERROR_BAD_FIELD;
+                                break;
+                            }
+                        }
+                        x = (int64_t) value;  // FIXME: Check out of bounds!
+                    }
+                    else {
+                        x = (int64_t) str_to_int64(result[k], INT64_MIN, INT64_MAX, &error);
+                        if (error) {
+                            read_error->error_type = ERROR_BAD_FIELD;
+                            break;
+                        }
                     }
                 }
                 *(int64_t *) data_ptr = x;
@@ -310,10 +483,22 @@ void *read_rows(stream *s, int *nrows,
             else if (typecode == 'Q') {
                 uint64_t x = 0;
                 if (k < current_num_fields) {
-                    x = (uint64_t) str_to_uint64(result[k], UINT64_MAX, &error);
-                    if (error) {
-                        read_error->error_type = ERROR_BAD_FIELD;
-                        break;
+                    if (converted != NULL) {
+                        size_t value = PyLong_AsSize_t(converted);
+                        if (value == (size_t)-1) {
+                            if (PyErr_Occurred()) {
+                                read_error->error_type = ERROR_BAD_FIELD;
+                                break;
+                            }
+                        }
+                        x = (uint64_t) value;  // FIXME: Check out of bounds!
+                    }
+                    else {
+                        x = (uint64_t) str_to_uint64(result[k], UINT64_MAX, &error);
+                        if (error) {
+                            read_error->error_type = ERROR_BAD_FIELD;
+                            break;
+                        }
                     }
                 }
                 *(uint64_t *) data_ptr = x;
@@ -323,11 +508,22 @@ void *read_rows(stream *s, int *nrows,
                 // Convert to float.
                 double x = NAN;
                 if (k < current_num_fields) {
-                    char decimal = pconfig->decimal;
-                    char sci = pconfig->sci;
-                    if ((*(result[k]) == '\0') || !to_double(result[k], &x, sci, decimal)) {
-                        read_error->error_type = ERROR_BAD_FIELD;
-                        break;
+                    if (converted != NULL) {
+                        x = PyFloat_AsDouble(converted);
+                        if (x == -1.0) {
+                            if (PyErr_Occurred()) {
+                                read_error->error_type = ERROR_BAD_FIELD;
+                                break;
+                            }
+                        }
+                    }
+                    else {
+                        char decimal = pconfig->decimal;
+                        char sci = pconfig->sci;
+                        if ((*(result[k]) == '\0') || !to_double(result[k], &x, sci, decimal)) {
+                            read_error->error_type = ERROR_BAD_FIELD;
+                            break;
+                        }
                     }
                 }
                 if (typecode == 'f') {
@@ -357,14 +553,37 @@ void *read_rows(stream *s, int *nrows,
             else {  // typecode == 'U'
                 memset(data_ptr, 0, field_types[f].itemsize);
                 if (k < current_num_fields) {
-                    size_t i = 0;
-                    // XXX The '4's in the following are sizeof(char32_t).
-                    while (i < (size_t) field_types[f].itemsize/4 && result[k][i]) {
-                        *(char32_t *)(data_ptr + 4*i) = result[k][i];
-                        ++i;
+                    if (converted != NULL) {
+                        Py_ssize_t len;
+                        int kind;
+                        void *data;
+                        if (!PyUnicode_Check(converted)) {
+                            read_error->error_type = ERROR_BAD_FIELD;
+                            break;
+                        }
+                        len = PyUnicode_GET_LENGTH(converted);
+                        if (4*len > field_types[f].itemsize) {
+                            // XXX Make a more specific error type? Converted
+                            // Unicode string is too long.
+                            read_error->error_type = ERROR_BAD_FIELD;
+                            break;
+                        }
+                        kind = PyUnicode_KIND(converted);
+                        data = PyUnicode_DATA(converted);
+                        for (Py_ssize_t i = 0; i < len; ++i) {
+                            *(char32_t *)(data_ptr + 4*i) = PyUnicode_READ(kind, data, i);
+                        }
                     }
-                    if (i < (size_t) field_types[f].itemsize/4) {
-                        *(char32_t *)(data_ptr + 4*i) = '\0';
+                    else {
+                        size_t i = 0;
+                        // XXX The '4's in the following are sizeof(char32_t).
+                        while (i < (size_t) field_types[f].itemsize/4 && result[k][i]) {
+                            *(char32_t *)(data_ptr + 4*i) = result[k][i];
+                            ++i;
+                        }
+                        if (i < (size_t) field_types[f].itemsize/4) {
+                            *(char32_t *)(data_ptr + 4*i) = '\0';
+                        }
                     }
                 }
                 data_ptr += field_types[f].itemsize;

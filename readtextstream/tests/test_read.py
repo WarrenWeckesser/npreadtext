@@ -202,3 +202,34 @@ def test_bad_values(dtype):
     txt = StringIO('1.5,2.5\n3.0,XXX\n5.5,6.0')
     with pytest.raises(RuntimeError, match=f'bad {dtype.name} value'):
         read(txt, dtype=dtype)
+
+
+def test_converters():
+    txt = StringIO('1.5,2.5\n3.0,XXX\n5.5,6.0')
+    conv = {-1: lambda s: np.nan if s == 'XXX' else float(s)}
+    a = read(txt, dtype=np.float64, converters=conv)
+    assert_equal(a, [[1.5, 2.5], [3.0, np.nan], [5.5, 6.0]])
+
+
+def test_converters_and_usecols():
+    txt = StringIO('1.5,2.5,3.5\n3.0,4.0,XXX\n5.5,6.0,7.5\n')
+    conv = {-1: lambda s: np.nan if s == 'XXX' else float(s)}
+    a = read(txt, dtype=np.float64, converters=conv, usecols=[0, 2])
+    assert_equal(a, [[1.5, 3.5], [3.0, np.nan], [5.5, 7.5]])
+
+
+def test_unicode_with_converter():
+    txt = StringIO('cat,dog\nαβγ,δεζ\nabc,def\n')
+    conv = {0: lambda s: s.upper()}
+    a = read(txt, dtype=np.dtype('U12'), converters=conv)
+    assert_equal(a, [['CAT', 'dog'], ['ΑΒΓ', 'δεζ'], ['ABC', 'def']])
+
+
+def test_converter_with_structured_dtype():
+    txt = StringIO('1.5,2.5,Abc\n3.0,4.0,dEf\n5.5,6.0,ghI\n')
+    dt = np.dtype([('m', np.int32), ('r', np.float32), ('code', 'U8')])
+    conv = {0: lambda s: int(10*float(s)), -1: lambda s: s.upper()}
+    a = read(txt, dtype=dt, converters=conv)
+    expected = np.array([(15, 2.5, 'ABC'), (30, 4.0, 'DEF'), (55, 6.0, 'GHI')],
+                        dtype=dt)
+    assert_equal(a, expected)
