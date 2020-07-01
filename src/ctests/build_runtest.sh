@@ -1,1 +1,2 @@
-gcc runtests.c ../type_inference.c ../blocks.c ../field_types.c ../conversions.c ../str_to.c ../str_to_double.c ../pow10table.c ../char32utils.c ctestify.c ctestify_assert.c -o runtests
+export PYTHONINCLUDE=$(python -c "import sysconfig; print(sysconfig.get_paths()['include'])")
+gcc runtests.c -I $PYTHONINCLUDE ../type_inference.c ../blocks.c ../field_types.c ../conversions.c ../str_to.c  ../dtoa_modified.c ../char32utils.c ctestify.c ctestify_assert.c -o runtests

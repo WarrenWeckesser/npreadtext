@@ -33,6 +33,7 @@ void str_to_char32(char32_t *w, char *s)
     w[k] = 0;
 }
 
+
 void test_conversions(test_results *results)
 {
     char32_t s[64];
@@ -50,7 +51,7 @@ void test_conversions(test_results *results)
     assert_equal_double(results, x, 1.25, "incorrect conversion to double");
 
     str_to_char32(s, "1.25e0");
-    status = to_double(s, &x, 'e', '.');
+    status = to_double(s, &x, 'E', '.');
     assert_equal_int(results, status, 1, "bad return status from to_double()");
     assert_equal_double(results, x, 1.25, "incorrect conversion to double");
 
@@ -66,7 +67,6 @@ void test_conversions(test_results *results)
     TEST_TO_LONGLONG(-9223372036854775807)
 }
 
-// int64_t str_to_int64(const char *p_item, int64_t int_min, int64_t int_max, int *error)
 
 void test_str_to(test_results *results)
 {
@@ -99,6 +99,7 @@ void test_str_to(test_results *results)
     assert_equal_int(results, error, 0, "str_to_uint64 returned nonzero error");
     assert_equal_uint64_t(results, n, 32768, "str_to_uint64 returned incorrect value");
 }
+
 
 void test_field_types(test_results *results)
 {
@@ -133,6 +134,7 @@ void test_field_types(test_results *results)
 
     free(ft);
 }
+
 
 void test_blocks(test_results *results)
 {
@@ -181,6 +183,7 @@ void test_blocks(test_results *results)
     free(data);
     blocks_destroy(b);
 }
+
 
 void test_type_inference(test_results *results)
 {
