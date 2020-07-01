@@ -10,8 +10,9 @@
 #include "sizes.h"
 #include "char32utils.h"
 
-double str_to_double(const char32_t *str, char32_t **end, int *error,
-                     char32_t decimal, char32_t sci, bool skip_trailing);
+double
+_Py_dg_strtod_modified(const char32_t *s00, char32_t **se, int *error,
+                       char32_t decimal, char32_t sci, bool skip_trailing);
 
 /*
  *  `item` must be the nul-terminated string that is to be
@@ -34,7 +35,7 @@ bool to_double(char32_t *item, double *p_value, char32_t sci, char32_t decimal)
     char32_t *p_end;
     int error;
 
-    *p_value = str_to_double(item, &p_end, &error, decimal, sci, true);
+    *p_value = _Py_dg_strtod_modified(item, &p_end, &error, decimal, sci, true);
 
     return (error == 0) && (!*p_end);
 }
@@ -46,7 +47,7 @@ bool to_complex(char32_t *item, double *p_real, double *p_imag,
     char32_t *p_end;
     int error;
 
-    *p_real = str_to_double(item, &p_end, &error, decimal, sci, false);
+    *p_real = _Py_dg_strtod_modified(item, &p_end, &error, decimal, sci, false);
     if (*p_end == '\0') {
         // No imaginary part in the string (e.g. "3.5")
         *p_imag = 0.0;
@@ -62,7 +63,7 @@ bool to_complex(char32_t *item, double *p_real, double *p_imag,
         if (*p_end == '+') {
             ++p_end;
         }
-        *p_imag = str_to_double(p_end, &p_end, &error, decimal, sci, false);
+        *p_imag = _Py_dg_strtod_modified(p_end, &p_end, &error, decimal, sci, false);
         if (error || ((*p_end != 'i') && (*p_end != 'j'))) {
             return false;
         }

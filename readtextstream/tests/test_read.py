@@ -2,7 +2,7 @@ from os import path
 from io import StringIO
 import pytest
 import numpy as np
-from numpy.testing import assert_array_equal, assert_, assert_equal
+from numpy.testing import assert_array_equal, assert_equal
 from readtextstream import read
 
 
@@ -80,7 +80,7 @@ def test_quoted_field():
     filename = _get_full_name('quoted_field.csv')
     a = read(filename)
     expected_dtype = np.dtype([('f0', 'S8'), ('f1', np.float64)])
-    assert_(a.dtype == expected_dtype)
+    assert a.dtype == expected_dtype
     expected = np.array([('alpha, x', 2.5),
                          ('beta, x', 4.5),
                          ('gamma, x', 5.0)], dtype=expected_dtype)
@@ -232,4 +232,20 @@ def test_converter_with_structured_dtype():
     a = read(txt, dtype=dt, converters=conv)
     expected = np.array([(15, 2.5, 'ABC'), (30, 4.0, 'DEF'), (55, 6.0, 'GHI')],
                         dtype=dt)
+    assert_equal(a, expected)
+
+
+def test_float_conversion():
+    # Some tests that the conversion to float64 works as accurately
+    # as the Python built-in `float` function.  In a naive version of
+    # the float parser, these strings resulted in values that were off
+    # by a ULP or two.
+    strings = ['0.9999999999999999',
+               '9876543210.123456',
+               '5.43215432154321e+300',
+               '0.901',
+               '0.333']
+    txt = StringIO('\n'.join(strings))
+    a = read(txt)
+    expected = np.array([float(s) for s in strings]).reshape((len(strings), 1))
     assert_equal(a, expected)
