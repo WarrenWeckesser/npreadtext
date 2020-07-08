@@ -18,6 +18,8 @@
 #define TOKENIZE_QUOTED     2
 #define TOKENIZE_WHITESPACE 3
 
+#define ISCOMMENT(c, s, c0, c1) ((c == c0) && ((c1 == 0) || (stream_peek(s) == c1)))
+
 /*
     How parsing quoted fields works:
 
@@ -89,21 +91,26 @@ static char32_t **tokenize_sep(stream *s, char32_t *word_buffer,
     int field_number;
     char32_t **result;
 
-    char32_t comment_char = pconfig->comment;
+    char32_t cc0 = pconfig->comment[0];
+    char32_t cc1 = pconfig->comment[1];
     char32_t sep_char = pconfig->delimiter;
     char32_t quote_char = pconfig->quote;
     bool ignore_leading_spaces = pconfig->ignore_leading_spaces;
     bool ignore_trailing_spaces = pconfig->ignore_trailing_spaces;
     bool allow_embedded_newline = pconfig->allow_embedded_newline;
     int trailing_space_count = 0;
+    bool havec;
 
     *p_error_type = 0;
 
-    while (stream_peek(s) == comment_char) {
+    havec = true;
+    c = stream_fetch(s);
+    while (ISCOMMENT(c, s, cc0, cc1)) {
         stream_skipline(s);
+        c = stream_fetch(s);
     }
 
-    if (stream_peek(s) == STREAM_EOF) {
+    if (c == STREAM_EOF) {
         *p_error_type = ERROR_NO_DATA;
         return NULL;
     }
@@ -122,7 +129,12 @@ static char32_t **tokenize_sep(stream *s, char32_t *word_buffer,
             *p_error_type = ERROR_TOO_MANY_FIELDS;
             break;
         }
-        c = stream_fetch(s);
+        if (!havec) {
+            c = stream_fetch(s);
+        }
+        else {
+            havec = false;
+        }
         if (state == TOKENIZE_INIT || state == TOKENIZE_UNQUOTED) {
             if (state == TOKENIZE_INIT && c == quote_char) {
                 // Opening quote. Switch state to TOKENIZE_QUOTED.
@@ -131,7 +143,7 @@ static char32_t **tokenize_sep(stream *s, char32_t *word_buffer,
             else if (state == TOKENIZE_INIT && ignore_leading_spaces && c == ' ') {
                 // Ignore this leading space.
             }
-            else if ((c == sep_char) || (c == comment_char) || (c == '\n') || (c == STREAM_EOF)) {
+            else if ((c == sep_char) ||  ISCOMMENT(c, s, cc0, cc1) || (c == '\n') || (c == STREAM_EOF)) {
                 // End of a field.  Save the field, and switch to state TOKENIZE_INIT.
                 if (ignore_trailing_spaces && trailing_space_count > 0) {
                     p_word_end -= trailing_space_count;
@@ -144,8 +156,9 @@ static char32_t **tokenize_sep(stream *s, char32_t *word_buffer,
                 if (c == '\n' || c == STREAM_EOF) {
                     break;
                 }
-                else if (c == comment_char) {
+                else if (ISCOMMENT(c, s, cc0, cc1)) {
                     stream_skipline(s);
+                    break;
                 }
                 trailing_space_count = 0;
                 state = TOKENIZE_INIT;
@@ -243,18 +256,25 @@ static char32_t **tokenize_ws(stream *s, char32_t *word_buffer, int word_buffer_
     int field_number;
     char32_t **result;
 
-    char32_t comment_char = pconfig->comment;
+    char32_t cc0 = pconfig->comment[0];
+    char32_t cc1 = pconfig->comment[1];
     char32_t quote_char = pconfig->quote;
     bool allow_embedded_newline = pconfig->allow_embedded_newline;
 
     *p_error_type = 0;
 
     while (true) {
-        while (stream_peek(s) == comment_char) {
+        // This is true when we enter the loop below. It becomes false
+        // and remains false in subsequent iterations of the loop.
+        bool havec = true;
+
+        c = stream_fetch(s);
+        while (ISCOMMENT(c, s, cc0, cc1)) {
             stream_skipline(s);
+            c = stream_fetch(s);
         }
 
-        if (stream_peek(s) == STREAM_EOF) {
+        if (c == STREAM_EOF) {
             *p_error_type = ERROR_NO_DATA;
             return NULL;
         }
@@ -273,7 +293,12 @@ static char32_t **tokenize_ws(stream *s, char32_t *word_buffer, int word_buffer_
                 *p_error_type = ERROR_TOO_MANY_FIELDS;
                 break;
             }
-            c = stream_fetch(s);
+            if (!havec) {
+                c = stream_fetch(s);
+            }
+            else {
+                havec = false;
+            }
 
             if (state == TOKENIZE_WHITESPACE) {
                 if (c == quote_char) {

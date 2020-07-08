@@ -44,12 +44,12 @@ typedef struct _parser_config {
     bool ignore_blank_lines;
 
     /*
-     *  Character that indicates the start of a comment.
+     *  Character(s) that indicates the start of a comment.
      *  Typically '#', '%' or ';'.
      *  When encountered in a line and not inside quotes, all character
-     *  from the comment character to the end of the line are ignored.
+     *  from the comment character(s) to the end of the line are ignored.
      */
-    char32_t comment;
+    char32_t comment[2];
 
     /*
      *  A boolean value (0 or 1).  If 1, quoted fields may span

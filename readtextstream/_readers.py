@@ -145,6 +145,9 @@ def read(file, *, delimiter=',', comment='#', quote='"',
     if ndmin not in [None, 0, 1, 2]:
         raise ValueError(f'ndmin must be None, 0, 1, or 2; got {ndmin}')
 
+    if len(comment) > 2:
+        raise ValueError('len(comment) must not be greater than 2.')
+
     _check_nonneg_int(skiprows)
     if max_rows is not None:
         _check_nonneg_int(max_rows)

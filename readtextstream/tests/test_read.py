@@ -65,6 +65,14 @@ def test1_read_with_comment():
         assert_array_equal(a, al)
 
 
+@pytest.mark.parametrize('comment', ['..', '//', '@-'])
+def test_comment_two_chars(comment):
+    content = '# IGNORE\n1.5,2.5# ABC\n3.0,4.0# XXX\n5.5,6.0\n'
+    txt = StringIO(content.replace('#', comment))
+    a = read(txt, dtype=np.float64, comment=comment)
+    assert_equal(a, [[1.5, 2.5], [3.0, 4.0], [5.5, 6.0]])
+
+
 def test_decimal_is_comma():
     filename = path.join(path.dirname(__file__),
                          'data', 'decimal_is_comma.txt')
