@@ -26,8 +26,11 @@ def _loadtxt(*args, **kwds):
     elif isinstance(comment, bytes):
         comment = comment.decode('latin1')
 
-    arr = read(*args, delimiter=delimiter, dtype=dtype,
-               comment=comment, **kwds)
+    try:
+        arr = read(*args, delimiter=delimiter, dtype=dtype,
+                   comment=comment, **kwds)
+    except RuntimeError as exc:
+        raise ValueError(exc.args) from None
 
     # For now, ignore 'ndmin' if 'unpack' was given.
     if 'unpack' not in kwds:
