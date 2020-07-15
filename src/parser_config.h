@@ -75,6 +75,11 @@ typedef struct _parser_config {
     char32_t sci;
 
     /*
+     *  The imaginary unit character. Default is `j`.
+     */
+    char32_t imaginary_unit;
+
+    /*
      *  If strict_num_fields is True, all rows in the file are expected
      *  to have the same number of fields.  When analyzing a file, if any row
      *  is found to have a different number of fields than the first row, an error
