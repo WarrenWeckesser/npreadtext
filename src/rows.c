@@ -312,6 +312,9 @@ void *read_rows(stream *s, int *nrows,
                 }
             }
 
+            // FIXME: There is a lot of repeated code in the following.
+            // This needs to be modularized.
+
             if (typecode == 'b') {
                 int8_t x = 0;
                 if (k < current_num_fields) {
@@ -328,8 +331,22 @@ void *read_rows(stream *s, int *nrows,
                     else {
                         x = (int8_t) str_to_int64(result[k], INT8_MIN, INT8_MAX, &error);
                         if (error) {
-                            read_error->error_type = ERROR_BAD_FIELD;
-                            break;
+                            if (pconfig->allow_float_for_int) {
+                                double fx;
+                                char decimal = pconfig->decimal;
+                                char sci = pconfig->sci;
+                                if ((*(result[k]) == '\0') || !to_double(result[k], &fx, sci, decimal)) {
+                                    read_error->error_type = ERROR_BAD_FIELD;
+                                    break;
+                                }
+                                else {
+                                    x = (int8_t) fx;
+                                }
+                            }
+                            else {
+                                read_error->error_type = ERROR_BAD_FIELD;
+                                break;
+                            }
                         }
                     }
                 }
@@ -352,8 +369,22 @@ void *read_rows(stream *s, int *nrows,
                     else {
                         x = (uint8_t) str_to_uint64(result[k], UINT8_MAX, &error);
                         if (error) {
-                            read_error->error_type = ERROR_BAD_FIELD;
-                            break;
+                            if (pconfig->allow_float_for_int) {
+                                double fx;
+                                char decimal = pconfig->decimal;
+                                char sci = pconfig->sci;
+                                if ((*(result[k]) == '\0') || !to_double(result[k], &fx, sci, decimal)) {
+                                    read_error->error_type = ERROR_BAD_FIELD;
+                                    break;
+                                }
+                                else {
+                                    x = (uint8_t) fx;
+                                }
+                            }
+                            else {
+                                read_error->error_type = ERROR_BAD_FIELD;
+                                break;
+                            }
                         }
                     }
                 }
@@ -376,8 +407,22 @@ void *read_rows(stream *s, int *nrows,
                     else {
                         x = (int16_t) str_to_int64(result[k], INT16_MIN, INT16_MAX, &error);
                         if (error) {
-                            read_error->error_type = ERROR_BAD_FIELD;
-                            break;
+                            if (pconfig->allow_float_for_int) {
+                                double fx;
+                                char decimal = pconfig->decimal;
+                                char sci = pconfig->sci;
+                                if ((*(result[k]) == '\0') || !to_double(result[k], &fx, sci, decimal)) {
+                                    read_error->error_type = ERROR_BAD_FIELD;
+                                    break;
+                                }
+                                else {
+                                    x = (int16_t) fx;
+                                }
+                            }
+                            else {
+                                read_error->error_type = ERROR_BAD_FIELD;
+                                break;
+                            }
                         }
                     }
                 }
@@ -400,8 +445,22 @@ void *read_rows(stream *s, int *nrows,
                     else {
                         x = (uint16_t) str_to_uint64(result[k], UINT16_MAX, &error);
                         if (error) {
-                            read_error->error_type = ERROR_BAD_FIELD;
-                            break;
+                            if (pconfig->allow_float_for_int) {
+                                double fx;
+                                char decimal = pconfig->decimal;
+                                char sci = pconfig->sci;
+                                if ((*(result[k]) == '\0') || !to_double(result[k], &fx, sci, decimal)) {
+                                    read_error->error_type = ERROR_BAD_FIELD;
+                                    break;
+                                }
+                                else {
+                                    x = (uint16_t) fx;
+                                }
+                            }
+                            else {
+                                read_error->error_type = ERROR_BAD_FIELD;
+                                break;
+                            }
                         }
                     }
                 }
@@ -424,8 +483,22 @@ void *read_rows(stream *s, int *nrows,
                     else {
                         x = (int32_t) str_to_int64(result[k], INT32_MIN, INT32_MAX, &error);
                         if (error) {
-                            read_error->error_type = ERROR_BAD_FIELD;
-                            break;
+                            if (pconfig->allow_float_for_int) {
+                                double fx;
+                                char decimal = pconfig->decimal;
+                                char sci = pconfig->sci;
+                                if ((*(result[k]) == '\0') || !to_double(result[k], &fx, sci, decimal)) {
+                                    read_error->error_type = ERROR_BAD_FIELD;
+                                    break;
+                                }
+                                else {
+                                    x = (int32_t) fx;
+                                }
+                            }
+                            else {
+                                read_error->error_type = ERROR_BAD_FIELD;
+                                break;
+                            }
                         }
                     }
                 }
@@ -448,8 +521,22 @@ void *read_rows(stream *s, int *nrows,
                     else {
                         x = (uint32_t) str_to_uint64(result[k], UINT32_MAX, &error);
                         if (error) {
-                            read_error->error_type = ERROR_BAD_FIELD;
-                            break;
+                            if (pconfig->allow_float_for_int) {
+                                double fx;
+                                char decimal = pconfig->decimal;
+                                char sci = pconfig->sci;
+                                if ((*(result[k]) == '\0') || !to_double(result[k], &fx, sci, decimal)) {
+                                    read_error->error_type = ERROR_BAD_FIELD;
+                                    break;
+                                }
+                                else {
+                                    x = (uint32_t) fx;
+                                }
+                            }
+                            else {
+                                read_error->error_type = ERROR_BAD_FIELD;
+                                break;
+                            }
                         }
                     }
                 }
@@ -472,8 +559,22 @@ void *read_rows(stream *s, int *nrows,
                     else {
                         x = (int64_t) str_to_int64(result[k], INT64_MIN, INT64_MAX, &error);
                         if (error) {
-                            read_error->error_type = ERROR_BAD_FIELD;
-                            break;
+                            if (pconfig->allow_float_for_int) {
+                                double fx;
+                                char decimal = pconfig->decimal;
+                                char sci = pconfig->sci;
+                                if ((*(result[k]) == '\0') || !to_double(result[k], &fx, sci, decimal)) {
+                                    read_error->error_type = ERROR_BAD_FIELD;
+                                    break;
+                                }
+                                else {
+                                    x = (int64_t) fx;
+                                }
+                            }
+                            else {
+                                read_error->error_type = ERROR_BAD_FIELD;
+                                break;
+                            }
                         }
                     }
                 }
@@ -496,8 +597,22 @@ void *read_rows(stream *s, int *nrows,
                     else {
                         x = (uint64_t) str_to_uint64(result[k], UINT64_MAX, &error);
                         if (error) {
-                            read_error->error_type = ERROR_BAD_FIELD;
-                            break;
+                            if (pconfig->allow_float_for_int) {
+                                double fx;
+                                char decimal = pconfig->decimal;
+                                char sci = pconfig->sci;
+                                if ((*(result[k]) == '\0') || !to_double(result[k], &fx, sci, decimal)) {
+                                    read_error->error_type = ERROR_BAD_FIELD;
+                                    break;
+                                }
+                                else {
+                                    x = (uint64_t) fx;
+                                }
+                            }
+                            else {
+                                read_error->error_type = ERROR_BAD_FIELD;
+                                break;
+                            }
                         }
                     }
                 }

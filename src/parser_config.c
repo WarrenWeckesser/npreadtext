@@ -16,6 +16,7 @@ parser_config default_parser_config(void)
     config.ignore_leading_spaces = true;
     config.ignore_trailing_spaces = true;
     config.strict_num_fields = true;
+    confgi.allow_float_for_int = true;
 
     return config;
 }

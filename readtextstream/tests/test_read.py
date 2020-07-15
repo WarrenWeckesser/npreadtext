@@ -257,3 +257,17 @@ def test_float_conversion():
     a = read(txt)
     expected = np.array([float(s) for s in strings]).reshape((len(strings), 1))
     assert_equal(a, expected)
+
+
+@pytest.mark.parametrize('dt', [np.int8, np.int16, np.int32, np.int64,
+                                np.uint8, np.uint16, np.uint32, np.uint64])
+def test_cast_float_to_int(dt):
+    # Currently the parser_config flag 'allow_float_for_int' is hardcoded
+    # to be true.  This means that if the parsing of an integer value
+    # fails, the code will attempt to parse it as a float, and then
+    # cast the float value to an integer.  This flag is only used when
+    # an explicit dtype is given.
+    txt = StringIO('1.0,2.1,3.7\n4,5,6')
+    a = read(txt, dtype=dt)
+    expected = np.array([[1, 2, 3], [4, 5, 6]], dtype=dt)
+    assert_equal(a, expected)

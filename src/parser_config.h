@@ -88,6 +88,13 @@ typedef struct _parser_config {
      */
      bool strict_num_fields;
 
+     /*
+      *  If true, when an integer dtype is given, the field is allowed
+      *  to contain a floating point value.  It will be cast to the
+      *  integer type.
+      */
+     bool allow_float_for_int;
+
 } parser_config;
 
 parser_config default_parser_config(void);
