@@ -271,3 +271,25 @@ def test_cast_float_to_int(dt):
     a = read(txt, dtype=dt)
     expected = np.array([[1, 2, 3], [4, 5, 6]], dtype=dt)
     assert_equal(a, expected)
+
+
+@pytest.mark.parametrize('dt', [np.complex64, np.complex128])
+@pytest.mark.parametrize('imaginary_unit', ['i', 'j'])
+@pytest.mark.parametrize('with_parens', [False, True])
+def test_complex(dt, imaginary_unit, with_parens):
+    s = '(1.0-2.5j),3.75,(7+-5.0j)\n(4),(-19e2j),(0)'.replace('j', imaginary_unit)
+    if not with_parens:
+        s = s.replace('(', '').replace(')', '')
+    a = read(StringIO(s), dtype=dt, imaginary_unit=imaginary_unit)
+    expected = np.array([[1.0-2.5j, 3.75, 7-5j], [4.0, -1900j, 0]], dtype=dt)
+    assert_equal(a, expected)
+
+
+def test_complex_analyze():
+    s = '3,2.0,199\n4,1.0+2.0j,225\n2,9.5-3.0j,432'
+    a = read(StringIO(s))
+    dt = np.dtype([('f0', np.uint8), ('f1', np.complex128), ('f2', np.uint16)])
+    assert a.dtype == dt
+    assert_equal(a['f0'], [3, 4, 2])
+    assert_equal(a['f1'], [2.0, 1+2j, 9.5-3j])
+    assert_equal(a['f2'], [199, 225, 432])

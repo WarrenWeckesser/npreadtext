@@ -10,6 +10,7 @@
 #include <time.h>
 #include <math.h>
 #include <stdbool.h>
+#include <complex.h>
 
 #include "stream.h"
 #include "tokenize.h"
@@ -23,6 +24,8 @@
 
 #define INITIAL_BLOCKS_TABLE_LENGTH 200
 #define ROWS_PER_BLOCK 500
+
+#define ALLOW_PARENS true
 
 //
 // If num_field_types is not 1, actual_num_fields must equal num_field_types.
@@ -633,8 +636,8 @@ void *read_rows(stream *s, int *nrows,
                         }
                     }
                     else {
-                        char decimal = pconfig->decimal;
-                        char sci = pconfig->sci;
+                        char32_t decimal = pconfig->decimal;
+                        char32_t sci = pconfig->sci;
                         if ((*(result[k]) == '\0') || !to_double(result[k], &x, sci, decimal)) {
                             read_error->error_type = ERROR_BAD_FIELD;
                             break;
@@ -646,6 +649,42 @@ void *read_rows(stream *s, int *nrows,
                 }
                 else {
                     *(double *) data_ptr = x;
+                }
+                data_ptr += field_types[f].itemsize;
+            }
+            else if (typecode == 'z' || typecode == 'c') {
+                // Convert to complex.
+                double x = NAN;
+                double y = NAN;
+                if (k < current_num_fields) {
+                    if (converted != NULL) {
+                        // FIXME: This case not converted from the float/double code.
+                        x = PyFloat_AsDouble(converted);
+                        if (x == -1.0) {
+                            if (PyErr_Occurred()) {
+                                read_error->error_type = ERROR_BAD_FIELD;
+                                break;
+                            }
+                        }
+                    }
+                    else {
+                        char32_t decimal = pconfig->decimal;
+                        char32_t sci = pconfig->sci;
+                        char32_t imaginary_unit = pconfig->imaginary_unit;
+                        if ((*(result[k]) == '\0') || !to_complex(result[k], &x, &y,
+                                                                  sci, decimal,
+                                                                  imaginary_unit,
+                                                                  ALLOW_PARENS)) {
+                            read_error->error_type = ERROR_BAD_FIELD;
+                            break;
+                        }
+                    }
+                }
+                if (typecode == 'c') {
+                    *(complex float *) data_ptr = (complex float) (x + I*y);
+                }
+                else {
+                    *(complex double *) data_ptr = x + I*y;
                 }
                 data_ptr += field_types[f].itemsize;
             }

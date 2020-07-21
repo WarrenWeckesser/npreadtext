@@ -149,7 +149,16 @@ char *field_types_build_str(int num_cols, const int32_t *cols, bool homogeneous,
         if (j > 0) {
             dtypestr[p++] = ',';
         }
-        dtypestr[p++] = ft[j].typecode;
+        if (ft[j].typecode == 'c') {
+            dtypestr[p] = 'F';
+        }
+        else if (ft[j].typecode == 'z') {
+            dtypestr[p] = 'D';
+        }
+        else {
+            dtypestr[p] = ft[j].typecode;
+        }
+        ++p;
         if (ft[j].typecode == 'S') {
             int nc = snprintf(dtypestr + p, len - p - 1, "%d", ft[j].itemsize);
             p += nc;

@@ -269,7 +269,8 @@ static PyObject *
 _readtext_from_filename(PyObject *self, PyObject *args, PyObject *kwargs)
 {
     static char *kwlist[] = {"filename", "delimiter", "comment", "quote",
-                             "decimal", "sci", "usecols", "skiprows",
+                             "decimal", "sci", "imaginary_unit",
+                             "usecols", "skiprows",
                              "max_rows", "converters",
                              "dtype", "codes", "sizes",
                              "encoding", NULL};
@@ -279,6 +280,7 @@ _readtext_from_filename(PyObject *self, PyObject *args, PyObject *kwargs)
     char *quote = "\"";
     char *decimal = ".";
     char *sci = "E";
+    char *imaginary_unit = "j";
     int skiprows;
     int max_rows;
 
@@ -298,9 +300,9 @@ _readtext_from_filename(PyObject *self, PyObject *args, PyObject *kwargs)
     PyObject *arr = NULL;
     int num_dtype_fields;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|$sssssOiiOOOOO", kwlist,
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|$ssssssOiiOOOOO", kwlist,
                                      &filename, &delimiter, &comment, &quote,
-                                     &decimal, &sci, &usecols, &skiprows,
+                                     &decimal, &sci, &imaginary_unit, &usecols, &skiprows,
                                      &max_rows, &converters,
                                      &dtype, &codes, &sizes, &encoding)) {
         return NULL;
@@ -312,6 +314,8 @@ _readtext_from_filename(PyObject *self, PyObject *args, PyObject *kwargs)
     pc.quote = *quote;
     pc.decimal = *decimal;
     pc.sci = *sci;
+    pc.imaginary_unit = *imaginary_unit;
+    pc.allow_float_for_int = true;
     pc.allow_embedded_newline = true;
     pc.ignore_leading_spaces = false;
     pc.ignore_trailing_spaces = false;
@@ -354,7 +358,8 @@ static PyObject *
 _readtext_from_file_object(PyObject *self, PyObject *args, PyObject *kwargs)
 {
     static char *kwlist[] = {"file", "delimiter", "comment", "quote",
-                             "decimal", "sci", "usecols", "skiprows",
+                             "decimal", "sci", "imaginary_unit",
+                             "usecols", "skiprows",
                              "max_rows", "converters",
                              "dtype", "codes", "sizes",
                              "encoding", NULL};
@@ -364,6 +369,7 @@ _readtext_from_file_object(PyObject *self, PyObject *args, PyObject *kwargs)
     char *quote = "\"";
     char *decimal = ".";
     char *sci = "E";
+    char *imaginary_unit = "j";
     int skiprows;
     int max_rows;
     PyObject *usecols;
@@ -381,9 +387,9 @@ _readtext_from_file_object(PyObject *self, PyObject *args, PyObject *kwargs)
     PyObject *arr = NULL;
     int num_dtype_fields;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|$sssssOiiOOOOO", kwlist,
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|$ssssssOiiOOOOO", kwlist,
                                      &file, &delimiter, &comment, &quote,
-                                     &decimal, &sci, &usecols, &skiprows,
+                                     &decimal, &sci, &imaginary_unit, &usecols, &skiprows,
                                      &max_rows, &converters,
                                      &dtype, &codes, &sizes, &encoding)) {
         return NULL;
@@ -395,6 +401,8 @@ _readtext_from_file_object(PyObject *self, PyObject *args, PyObject *kwargs)
     pc.quote = *quote;
     pc.decimal = *decimal;
     pc.sci = *sci;
+    pc.imaginary_unit = *imaginary_unit;
+    pc.allow_float_for_int = true;
     pc.allow_embedded_newline = true;
     pc.ignore_leading_spaces = false;
     pc.ignore_trailing_spaces = false;

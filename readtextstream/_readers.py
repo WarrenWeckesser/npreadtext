@@ -19,7 +19,8 @@ def _check_nonneg_int(value, name="argument"):
 
 
 def read(file, *, delimiter=',', comment='#', quote='"',
-         decimal='.', sci='E', usecols=None, skiprows=0,
+         decimal='.', sci='E', imaginary_unit='j',
+         usecols=None, skiprows=0,
          max_rows=None, converters=None, ndmin=None, unpack=False,
          dtype=None, encoding=None):
     """
@@ -44,6 +45,9 @@ def read(file, *, delimiter=',', comment='#', quote='"',
         The character in front of the exponent when exponential notation
         is used for floating point values.  The default is 'E'.  The value
         is case-insensitive.
+    imaginary_unit : str, optional
+        Character that represent the imaginay unit `sqrt(-1)`.
+        Default is 'j'.
     usecols : array_like, optional
         A one-dimensional array of integer column numbers.  These are the
         columns from the file to be included in the array.  If this value
@@ -148,6 +152,9 @@ def read(file, *, delimiter=',', comment='#', quote='"',
     if len(comment) > 2:
         raise ValueError('len(comment) must not be greater than 2.')
 
+    if len(imaginary_unit) != 1:
+        raise ValueError('len(imaginary_unit) must be 1.')
+
     _check_nonneg_int(skiprows)
     if max_rows is not None:
         _check_nonneg_int(max_rows)
@@ -183,6 +190,7 @@ def read(file, *, delimiter=',', comment='#', quote='"',
             arr = _readtext_from_filename(file, delimiter=delimiter,
                                           comment=comment, quote=quote,
                                           decimal=decimal, sci=sci,
+                                          imaginary_unit=imaginary_unit,
                                           usecols=usecols, skiprows=skiprows,
                                           max_rows=max_rows,
                                           converters=converters,
@@ -196,6 +204,7 @@ def read(file, *, delimiter=',', comment='#', quote='"',
                 arr = _readtext_from_file_object(f, delimiter=delimiter,
                                                  comment=comment, quote=quote,
                                                  decimal=decimal, sci=sci,
+                                                 imaginary_unit=imaginary_unit,
                                                  usecols=usecols,
                                                  skiprows=skiprows,
                                                  max_rows=max_rows,
@@ -210,6 +219,7 @@ def read(file, *, delimiter=',', comment='#', quote='"',
             arr = _readtext_from_file_object(f, delimiter=delimiter,
                                              comment=comment, quote=quote,
                                              decimal=decimal, sci=sci,
+                                             imaginary_unit=imaginary_unit,
                                              usecols=usecols,
                                              skiprows=skiprows,
                                              max_rows=max_rows,
@@ -223,6 +233,7 @@ def read(file, *, delimiter=',', comment='#', quote='"',
         arr = _readtext_from_file_object(file, delimiter=delimiter,
                                          comment=comment,
                                          quote=quote, decimal=decimal, sci=sci,
+                                         imaginary_unit=imaginary_unit,
                                          usecols=usecols, skiprows=skiprows,
                                          max_rows=max_rows,
                                          converters=converters,

@@ -42,32 +42,52 @@ bool to_double(char32_t *item, double *p_value, char32_t sci, char32_t decimal)
 
 
 bool to_complex(char32_t *item, double *p_real, double *p_imag,
-                char32_t sci, char32_t decimal)
+                char32_t sci, char32_t decimal, char32_t imaginary_unit,
+                bool allow_parens)
 {
     char32_t *p_end;
     int error;
+    bool unmatched_opening_paren = false;
 
+    if (allow_parens && (*item == '(')) {
+        unmatched_opening_paren = true;
+        ++item;
+    }
     *p_real = _Py_dg_strtod_modified(item, &p_end, &error, decimal, sci, false);
     if (*p_end == '\0') {
         // No imaginary part in the string (e.g. "3.5")
         *p_imag = 0.0;
-        return error == 0;
+        return (error == 0) && (!unmatched_opening_paren);
     }
-    if (*p_end == 'i' || *p_end == 'j') {
+    if (*p_end == imaginary_unit) {
         // Pure imaginary part only (e.g "1.5j")
         *p_imag = *p_real;
         *p_real = 0.0;
         ++p_end;
+        if (unmatched_opening_paren && (*p_end == ')')) {
+            ++p_end;
+            unmatched_opening_paren = false;
+        }
+    }
+    else if (unmatched_opening_paren && (*p_end == ')')) {
+        *p_imag = 0.0;
+        ++p_end;
+        unmatched_opening_paren = false;
     }
     else {
         if (*p_end == '+') {
             ++p_end;
         }
+
         *p_imag = _Py_dg_strtod_modified(p_end, &p_end, &error, decimal, sci, false);
-        if (error || ((*p_end != 'i') && (*p_end != 'j'))) {
+        if (error || (*p_end != imaginary_unit)) {
             return false;
         }
         ++p_end;
+        if (unmatched_opening_paren && (*p_end == ')')) {
+            ++p_end;
+            unmatched_opening_paren = false;
+        }
     }
     while(*p_end == ' ') {
         ++p_end;

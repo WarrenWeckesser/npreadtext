@@ -86,6 +86,7 @@ int analyze(stream *s, parser_config *pconfig, int skiplines, int numrows,
 
     char32_t decimal = pconfig->decimal;
     char32_t sci = pconfig->sci;
+    char32_t imaginary_unit = pconfig->imaginary_unit;
 
     stream_skiplines(s, skiplines);
     if (stream_peek(s) == STREAM_EOF) {
@@ -138,7 +139,8 @@ int analyze(stream *s, parser_config *pconfig, int skiplines, int numrows,
             int field_len;
             int64_t imin;
             uint64_t umax;
-            typecode = classify_type(result[k], decimal, sci, &imin, &umax,
+            typecode = classify_type(result[k], decimal, sci, imaginary_unit,
+                                     &imin, &umax,
                                      types[k].typecode);
             if (typecode == 'q' && imin < ranges[k].imin) {
                 ranges[k].imin = imin;

@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
+#include <complex.h>
 #include "../typedefs.h"
 #include "../blocks.h"
 #include "../field_types.h"
@@ -13,6 +14,8 @@
 #include "../type_inference.h"
 
 #include "ctestify.h"
+
+#define ALLOW_PARENS true
 
 #define TEST_TO_LONGLONG(value)                                 \
     str_to_char32(s, #value);                                   \
@@ -67,6 +70,60 @@ void test_conversions(test_results *results)
     TEST_TO_LONGLONG(-9223372036854775807)
 }
 
+void test_complex_conversion(test_results *results)
+{
+    char32_t s[64];
+    double x, y;
+    int status;
+
+    str_to_char32(s, "1.25+2.0j");
+    status = to_complex(s, &x, &y, 'E', '.', 'j', ALLOW_PARENS);
+    assert_equal_int(results, status, 1, "bad return status from to_complex()");
+    assert_equal_double(results, x, 1.25, "incorrect conversion to complex (real part)");
+    assert_equal_double(results, y, 2.0, "incorrect conversion to complex (imag part)");
+
+    str_to_char32(s, "1.25+-2000i");
+    status = to_complex(s, &x, &y, 'E', '.', 'i', ALLOW_PARENS);
+    assert_equal_int(results, status, 1, "bad return status from to_complex()");
+    assert_equal_double(results, x, 1.25, "incorrect conversion to complex (real part)");
+    assert_equal_double(results, y, -2000.0, "incorrect conversion to complex (imag part)");
+
+    str_to_char32(s, "1.25");
+    status = to_complex(s, &x, &y, 'E', '.', 'i', ALLOW_PARENS);
+    assert_equal_int(results, status, 1, "bad return status from to_complex()");
+    assert_equal_double(results, x, 1.25, "incorrect conversion to complex (real part)");
+    assert_equal_double(results, y, 0.0, "incorrect conversion to complex (imag part)");
+
+    str_to_char32(s, "1.25i");
+    status = to_complex(s, &x, &y, 'E', '.', 'i', ALLOW_PARENS);
+    assert_equal_int(results, status, 1, "bad return status from to_complex()");
+    assert_equal_double(results, x, 0.0, "incorrect conversion to complex (real part)");
+    assert_equal_double(results, y, 1.25, "incorrect conversion to complex (imag part)");
+
+    str_to_char32(s, "1.25+-2.0e1i");
+    status = to_complex(s, &x, &y, 'E', '.', 'i', ALLOW_PARENS);
+    assert_equal_int(results, status, 1, "bad return status from to_complex()");
+    assert_equal_double(results, x, 1.25, "incorrect conversion to complex (real part)");
+    assert_equal_double(results, y, -20.0, "incorrect conversion to complex (imag part)");
+
+    str_to_char32(s, "1.0-2.0i");
+    status = to_complex(s, &x, &y, 'E', '.', 'i', ALLOW_PARENS);
+    assert_equal_int(results, status, 1, "bad return status from to_complex()");
+    assert_equal_double(results, x, 1.0, "incorrect conversion to complex (real part)");
+    assert_equal_double(results, y, -2.0, "incorrect conversion to complex (imag part)");
+
+    str_to_char32(s, "8.125e03-.5e1i");
+    status = to_complex(s, &x, &y, 'E', '.', 'i', ALLOW_PARENS);
+    assert_equal_int(results, status, 1, "bad return status from to_complex()");
+    assert_equal_double(results, x, 8125.0, "incorrect conversion to complex (real part)");
+    assert_equal_double(results, y, -5.0, "incorrect conversion to complex (imag part)");
+
+    str_to_char32(s, "(8.125e03-.5e1i)");
+    status = to_complex(s, &x, &y, 'E', '.', 'i', ALLOW_PARENS);
+    assert_equal_int(results, status, 1, "bad return status from to_complex()");
+    assert_equal_double(results, x, 8125.0, "incorrect conversion to complex (real part)");
+    assert_equal_double(results, y, -5.0, "incorrect conversion to complex (imag part)");
+}
 
 void test_str_to(test_results *results)
 {
@@ -194,29 +251,29 @@ void test_type_inference(test_results *results)
 
     str_to_char32(s, "123");
     prev_type = '*';
-    type = classify_type(s, '.', 'e', &i, &u, prev_type);
+    type = classify_type(s, '.', 'e', 'j', &i, &u, prev_type);
     assert_equal_char(results, type, 'Q', "inferred type is not 'Q'");
     assert_equal_uint64_t(results, u, 123, "value in u is not 123");
 
     str_to_char32(s, "1234");
     prev_type = 'd';
-    type = classify_type(s, '.', 'e', &i, &u, prev_type);
+    type = classify_type(s, '.', 'e', 'j', &i, &u, prev_type);
     assert_equal_char(results, type, 'd', "inferred type is not 'd'");
 
     str_to_char32(s, "12X3");
     prev_type = 'd';
-    type = classify_type(s, '.', 'e', &i, &u, prev_type);
+    type = classify_type(s, '.', 'e', 'j', &i, &u, prev_type);
     assert_equal_char(results, type, 'S', "inferred type is not 'S'");
 
     str_to_char32(s, "-12345");
     prev_type = '*';
-    type = classify_type(s, '.', 'e', &i, &u, prev_type);
+    type = classify_type(s, '.', 'e', 'j', &i, &u, prev_type);
     assert_equal_char(results, type, 'q', "inferred type is not 'q'");
     assert_equal_int64_t(results, i, -12345, "value in u is not -12345");
 
     str_to_char32(s, "-12345");
     prev_type = 'Q';
-    type = classify_type(s, '.', 'e', &i, &u, prev_type);
+    type = classify_type(s, '.', 'e', 'j', &i, &u, prev_type);
     assert_equal_char(results, type, 'q', "inferred type is not 'q'");
     assert_equal_int64_t(results, i, -12345, "value in u is not -12345");
 
@@ -300,6 +357,9 @@ int main(int argc, char *argv[])
 
     printf("test_conversions\n");
     test_conversions(&results);
+
+    printf("test_complex_conversion\n");
+    test_complex_conversion(&results);
 
     printf("test_str_to\n");
     test_str_to(&results);

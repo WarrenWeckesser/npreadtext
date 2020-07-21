@@ -2,10 +2,13 @@
 
 #include <stdio.h>
 #include <time.h>
+#include <stdbool.h>
 
 #include "typedefs.h"
 #include "str_to.h"
 #include "conversions.h"
+
+#define ALLOW_PARENS true
 
 /*
 
@@ -51,7 +54,8 @@ as missing data.
  *      to classify a column, not just a single field. 
  */
 
-char classify_type(char32_t *field, char32_t decimal, char32_t sci, int64_t *i, uint64_t *u,
+char classify_type(char32_t *field, char32_t decimal, char32_t sci, char32_t imaginary_unit,
+                   int64_t *i, uint64_t *u,
                    char prev_type)
 {
     int error = 0;
@@ -81,7 +85,8 @@ char classify_type(char32_t *field, char32_t decimal, char32_t sci, int64_t *i, 
             }
             /*@fallthrough@*/
         case 'z':
-            success = to_complex(field, &real, &imag, sci, decimal);
+            success = to_complex(field, &real, &imag, sci, decimal, imaginary_unit,
+                                 ALLOW_PARENS);
             if (success) {
                 return 'z';
             }
