@@ -1,9 +1,11 @@
 
 import os
 import codecs
+import types
 from pathlib import Path
 import operator
 import numpy as np
+from ._filegen import FileGen
 from . import _flatten_dtype
 from ._readtextmodule import (_readtext_from_filename,
                               _readtext_from_file_object)
@@ -227,6 +229,24 @@ def read(file, *, delimiter=',', comment='#', quote='"',
                                              dtype=dtype,
                                              codes=codes, sizes=sizes,
                                              encoding=enc)
+    elif isinstance(file, types.GeneratorType):
+        if dtype is None:
+            raise ValueError('dtype must be given when reading from '
+                             'a generator')
+        # Wrap the generator in a class with a readline() method.
+        fg = FileGen(file)
+        enc = encoding.encode('ascii') if encoding is not None else None
+        arr = _readtext_from_file_object(fg, delimiter=delimiter,
+                                         comment=comment, quote=quote,
+                                         decimal=decimal, sci=sci,
+                                         imaginary_unit=imaginary_unit,
+                                         usecols=usecols,
+                                         skiprows=skiprows,
+                                         max_rows=max_rows,
+                                         converters=converters,
+                                         dtype=dtype,
+                                         codes=codes, sizes=sizes,
+                                         encoding=enc)
     else:
         # Assume file is a file object.
         enc = encoding.encode('ascii') if encoding is not None else None

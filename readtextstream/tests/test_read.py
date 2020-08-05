@@ -277,7 +277,8 @@ def test_cast_float_to_int(dt):
 @pytest.mark.parametrize('imaginary_unit', ['i', 'j'])
 @pytest.mark.parametrize('with_parens', [False, True])
 def test_complex(dt, imaginary_unit, with_parens):
-    s = '(1.0-2.5j),3.75,(7+-5.0j)\n(4),(-19e2j),(0)'.replace('j', imaginary_unit)
+    s = '(1.0-2.5j),3.75,(7+-5.0j)\n(4),(-19e2j),(0)'.replace('j',
+                                                              imaginary_unit)
     if not with_parens:
         s = s.replace('(', '').replace(')', '')
     a = read(StringIO(s), dtype=dt, imaginary_unit=imaginary_unit)
@@ -293,3 +294,24 @@ def test_complex_analyze():
     assert_equal(a['f0'], [3, 4, 2])
     assert_equal(a['f1'], [2.0, 1+2j, 9.5-3j])
     assert_equal(a['f2'], [199, 225, 432])
+
+
+def test_read_from_generator_1():
+
+    def gen():
+        for i in range(4):
+            yield f'{i},{2*i},{i**2}'
+
+    data = read(gen(), dtype=int)
+    assert_equal(data, [[0, 0, 0], [1, 2, 1], [2, 4, 4], [3, 6, 9]])
+
+
+def test_read_from_generator_2():
+
+    def gen():
+        for i in range(3):
+            yield f'{i} {i/4}'
+
+    data = read(gen(), dtype='i,d', delimiter=' ')
+    expected = np.array([(0, 0.0), (1, 0.25), (2, 0.5)], dtype='i,d')
+    assert_equal(data, expected)
