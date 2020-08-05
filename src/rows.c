@@ -20,6 +20,7 @@
 #include "rows.h"
 #include "error_types.h"
 #include "str_to.h"
+#include "str_to_int.h"
 #include "blocks.h"
 
 #define INITIAL_BLOCKS_TABLE_LENGTH 200
@@ -332,24 +333,9 @@ void *read_rows(stream *s, int *nrows,
                         x = (int8_t) value;  // FIXME: Check out of bounds!
                     }
                     else {
-                        x = (int8_t) str_to_int64(result[k], INT8_MIN, INT8_MAX, &error);
-                        if (error) {
-                            if (pconfig->allow_float_for_int) {
-                                double fx;
-                                char decimal = pconfig->decimal;
-                                char sci = pconfig->sci;
-                                if ((*(result[k]) == '\0') || !to_double(result[k], &fx, sci, decimal)) {
-                                    read_error->error_type = ERROR_BAD_FIELD;
-                                    break;
-                                }
-                                else {
-                                    x = (int8_t) fx;
-                                }
-                            }
-                            else {
-                                read_error->error_type = ERROR_BAD_FIELD;
-                                break;
-                            }
+                        x = to_int8(result[k], pconfig, &read_error->error_type);
+                        if (read_error->error_type) {
+                            break;
                         }
                     }
                 }
@@ -370,24 +356,9 @@ void *read_rows(stream *s, int *nrows,
                         x = (uint8_t) value;  // FIXME: Check out of bounds!
                     }
                     else {
-                        x = (uint8_t) str_to_uint64(result[k], UINT8_MAX, &error);
-                        if (error) {
-                            if (pconfig->allow_float_for_int) {
-                                double fx;
-                                char decimal = pconfig->decimal;
-                                char sci = pconfig->sci;
-                                if ((*(result[k]) == '\0') || !to_double(result[k], &fx, sci, decimal)) {
-                                    read_error->error_type = ERROR_BAD_FIELD;
-                                    break;
-                                }
-                                else {
-                                    x = (uint8_t) fx;
-                                }
-                            }
-                            else {
-                                read_error->error_type = ERROR_BAD_FIELD;
-                                break;
-                            }
+                        x = to_uint8(result[k], pconfig, &read_error->error_type);
+                        if (read_error->error_type) {
+                            break;
                         }
                     }
                 }
@@ -408,24 +379,9 @@ void *read_rows(stream *s, int *nrows,
                         x = (int16_t) value;  // FIXME: Check out of bounds!
                     }
                     else {
-                        x = (int16_t) str_to_int64(result[k], INT16_MIN, INT16_MAX, &error);
-                        if (error) {
-                            if (pconfig->allow_float_for_int) {
-                                double fx;
-                                char decimal = pconfig->decimal;
-                                char sci = pconfig->sci;
-                                if ((*(result[k]) == '\0') || !to_double(result[k], &fx, sci, decimal)) {
-                                    read_error->error_type = ERROR_BAD_FIELD;
-                                    break;
-                                }
-                                else {
-                                    x = (int16_t) fx;
-                                }
-                            }
-                            else {
-                                read_error->error_type = ERROR_BAD_FIELD;
-                                break;
-                            }
+                        x = to_int16(result[k], pconfig, &read_error->error_type);
+                        if (read_error->error_type) {
+                            break;
                         }
                     }
                 }
@@ -446,24 +402,9 @@ void *read_rows(stream *s, int *nrows,
                         x = (uint16_t) value;  // FIXME: Check out of bounds!
                     }
                     else {
-                        x = (uint16_t) str_to_uint64(result[k], UINT16_MAX, &error);
-                        if (error) {
-                            if (pconfig->allow_float_for_int) {
-                                double fx;
-                                char decimal = pconfig->decimal;
-                                char sci = pconfig->sci;
-                                if ((*(result[k]) == '\0') || !to_double(result[k], &fx, sci, decimal)) {
-                                    read_error->error_type = ERROR_BAD_FIELD;
-                                    break;
-                                }
-                                else {
-                                    x = (uint16_t) fx;
-                                }
-                            }
-                            else {
-                                read_error->error_type = ERROR_BAD_FIELD;
-                                break;
-                            }
+                        x = to_uint16(result[k], pconfig, &read_error->error_type);
+                        if (read_error->error_type) {
+                            break;
                         }
                     }
                 }
@@ -484,24 +425,9 @@ void *read_rows(stream *s, int *nrows,
                         x = (int32_t) value;  // FIXME: Check out of bounds!
                     }
                     else {
-                        x = (int32_t) str_to_int64(result[k], INT32_MIN, INT32_MAX, &error);
-                        if (error) {
-                            if (pconfig->allow_float_for_int) {
-                                double fx;
-                                char decimal = pconfig->decimal;
-                                char sci = pconfig->sci;
-                                if ((*(result[k]) == '\0') || !to_double(result[k], &fx, sci, decimal)) {
-                                    read_error->error_type = ERROR_BAD_FIELD;
-                                    break;
-                                }
-                                else {
-                                    x = (int32_t) fx;
-                                }
-                            }
-                            else {
-                                read_error->error_type = ERROR_BAD_FIELD;
-                                break;
-                            }
+                        x = to_int32(result[k], pconfig, &read_error->error_type);
+                        if (read_error->error_type) {
+                            break;
                         }
                     }
                 }
@@ -522,24 +448,9 @@ void *read_rows(stream *s, int *nrows,
                         x = (uint32_t) value;  // FIXME: Check out of bounds!
                     }
                     else {
-                        x = (uint32_t) str_to_uint64(result[k], UINT32_MAX, &error);
-                        if (error) {
-                            if (pconfig->allow_float_for_int) {
-                                double fx;
-                                char decimal = pconfig->decimal;
-                                char sci = pconfig->sci;
-                                if ((*(result[k]) == '\0') || !to_double(result[k], &fx, sci, decimal)) {
-                                    read_error->error_type = ERROR_BAD_FIELD;
-                                    break;
-                                }
-                                else {
-                                    x = (uint32_t) fx;
-                                }
-                            }
-                            else {
-                                read_error->error_type = ERROR_BAD_FIELD;
-                                break;
-                            }
+                        x = to_uint32(result[k], pconfig, &read_error->error_type);
+                        if (read_error->error_type) {
+                            break;
                         }
                     }
                 }
@@ -560,24 +471,9 @@ void *read_rows(stream *s, int *nrows,
                         x = (int64_t) value;  // FIXME: Check out of bounds!
                     }
                     else {
-                        x = (int64_t) str_to_int64(result[k], INT64_MIN, INT64_MAX, &error);
-                        if (error) {
-                            if (pconfig->allow_float_for_int) {
-                                double fx;
-                                char decimal = pconfig->decimal;
-                                char sci = pconfig->sci;
-                                if ((*(result[k]) == '\0') || !to_double(result[k], &fx, sci, decimal)) {
-                                    read_error->error_type = ERROR_BAD_FIELD;
-                                    break;
-                                }
-                                else {
-                                    x = (int64_t) fx;
-                                }
-                            }
-                            else {
-                                read_error->error_type = ERROR_BAD_FIELD;
-                                break;
-                            }
+                        x = to_int64(result[k], pconfig, &read_error->error_type);
+                        if (read_error->error_type) {
+                            break;
                         }
                     }
                 }
@@ -598,24 +494,9 @@ void *read_rows(stream *s, int *nrows,
                         x = (uint64_t) value;  // FIXME: Check out of bounds!
                     }
                     else {
-                        x = (uint64_t) str_to_uint64(result[k], UINT64_MAX, &error);
-                        if (error) {
-                            if (pconfig->allow_float_for_int) {
-                                double fx;
-                                char decimal = pconfig->decimal;
-                                char sci = pconfig->sci;
-                                if ((*(result[k]) == '\0') || !to_double(result[k], &fx, sci, decimal)) {
-                                    read_error->error_type = ERROR_BAD_FIELD;
-                                    break;
-                                }
-                                else {
-                                    x = (uint64_t) fx;
-                                }
-                            }
-                            else {
-                                read_error->error_type = ERROR_BAD_FIELD;
-                                break;
-                            }
+                        x = to_uint64(result[k], pconfig, &read_error->error_type);
+                        if (read_error->error_type) {
+                            break;
                         }
                     }
                 }
