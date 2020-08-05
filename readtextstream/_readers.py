@@ -23,7 +23,7 @@ def read(file, *, delimiter=',', comment='#', quote='"',
          usecols=None, skiprows=0,
          max_rows=None, converters=None, ndmin=None, unpack=False,
          dtype=None, encoding=None):
-    """
+    r"""
     Read a NumPy array from a text file.
 
     Parameters
