@@ -23,7 +23,7 @@ def _dtypestr2fmt(st):
     >>> _dtypestr2fmt('u4')
     'I'
     >>> _dtypestr2fmt('S10')
-    '10s'
+    '10S'
     """
 
     fmt = _dtype_str_map.get(st)
@@ -49,7 +49,7 @@ def flatten_dtype(dt):
     Examples
     --------
     >>> flatten_dtype('float32,float64,int,uint16')
-    'fdiH'
+    'fdqH'
     >>> dt = np.dtype([('name', 'S16'),
                        ('pos', [('x', np.uint16),
                                 ('y', np.uint16)]),
@@ -58,7 +58,7 @@ def flatten_dtype(dt):
                                   ('b', np.uint8)]),
                        ('bar', float)])
     >>> flatten_dtype(dt)
-    '16sHHBBBd'
+    '16SHHBBBd'
     """
     if not isinstance(dt, np.dtype):
         dt = np.dtype(dt)
@@ -93,7 +93,7 @@ def _dtypestr2fmt2(st):
         if st.startswith('U'):
             fmt = ('U', 4*int(st[1:]))
         elif st.startswith('S'):
-            fmt = ('s', int(st[1:]))
+            fmt = ('S', int(st[1:]))
         else:
             raise ValueError('_dtypestr2fmt2: unsupported dtype string: %s' %
                              (st,))
@@ -123,23 +123,21 @@ def flatten_dtype2(dt):
                        ('bar', float)])
     >>> codes, sizes = flatten_dtype2(dt)
     >>> codes
-    ['s', 'H', 'H', 'B', 'B', 'B', 'd']
+    array([b'S', b'H', b'H', b'B', b'B', b'B', b'd'], dtype='|S1')
     >>> sizes
-    [16, 2, 2, 1, 1, 1, 8]
+    array([16,  2,  2,  1,  1,  1,  8], dtype=int32)
 
     >>> dtb = np.dtype([('foo', [('q', np.int32), ('r', np.float32)], 3),
                         ('code', np.int16, 2)])
     >>> codes, sizes = flatten_dtype2(dtb)
     >>> codes
-    ['i', 'f', 'i', 'f', 'i', 'f', 'h', 'h']
+    array([b'i', b'f', b'i', b'f', b'i', b'f', b'h', b'h'], dtype='|S1')
     >>> sizes
-    [4, 4, 4, 4, 4, 4, 2, 2]
+    array([4, 4, 4, 4, 4, 4, 2, 2], dtype=int32)
     """
     codes = []
     sizes = []
     _flatten_dtype2(dt, codes, sizes)
-    # XXX Check convention for 's' vs 'S'
-    codes = [c if c != 's' else 'S' for c in codes]
     return np.array(codes, dtype='S1'), np.array(sizes, dtype=np.int32)
 
 

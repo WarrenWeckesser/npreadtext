@@ -22,13 +22,13 @@ typedef struct _field_type {
     //     d : 64 bit floating point
     //     c : 32 bit complex (real and imag are each 32 bit) (not implemented)
     //     z : 64 bit complex (real and imag are each 64 bit) (not implemented)
-    //     s : character
-    //     U : 64 bit datetime (not implemented)
+    //     S : character string (1 character == 1 byte)
+    //     U : Unicode string (32 bit codepoints)
     char typecode;
 
     // itemsize:
     //   Size of field, in bytes.  In theory this would only be
-    //   needed for the 's' type code, but it is expected to be
+    //   needed for the 'S' or 'U' type codes, but it is expected to be
     //   correctly filled in for all the types.
     int32_t itemsize;
 
