@@ -22,12 +22,15 @@ void _assert_equal_pointer(test_results *results, void *value1, void *value2,
                           char *msg, char *filename, int linenumber);
 void _assert_equal_str(test_results *results, char *value1, char *value2,
                        char *msg, char *filename, int linenumber);
+void _assert_equal_mem(test_results *results, char *value1, char *value2, size_t n,
+                       char *msg, char *filename, int linenumber);
 
 #include "ctestify_assert.h"
 
 #define assert_true(A, B, C) _assert_true(A, B, C, __FILE__, __LINE__)
 #define assert_equal_pointer(A, B, C, D) _assert_equal_pointer(A, B, C, D, __FILE__, __LINE__)
 #define assert_equal_str(A, B, C, D) _assert_equal_str(A, B, C, D, __FILE__, __LINE__)
+#define assert_equal_mem(A, B, C, D, E) _assert_equal_mem(A, B, C, D, E, __FILE__, __LINE__)
 #define assert_equal_char32(A, B, C, D) _assert_equal_char32(A, B, C, D, __FILE__, __LINE__)
 
 

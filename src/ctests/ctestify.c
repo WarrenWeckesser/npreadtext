@@ -76,12 +76,28 @@ void _assert_equal_pointer(test_results *results, void *value1, void *value2,
 
 
 void _assert_equal_str(test_results *results, char *value1, char *value2,
-                           char *msg, char *filename, int linenumber)
+                       char *msg, char *filename, int linenumber)
 {
     results->num_assertions += 1;
     if (strcmp(value1, value2) != 0) {
         fprintf(results->errfile, "Assertion failed: %s:%d  %s\n", filename, linenumber, msg);
         fprintf(results->errfile, "... str values not equal: '%s' and '%s'\n", value1, value2);
+        fflush(results->errfile);
+        results->num_failed += 1;
+    }
+}
+
+void _assert_equal_mem(test_results *results, char *value1, char *value2, size_t n,
+                       char *msg, char *filename, int linenumber)
+{
+    results->num_assertions += 1;
+    if (memcmp(value1, value2, n) != 0) {
+        fprintf(results->errfile, "Assertion failed: %s:%d  %s\n", filename, linenumber, msg);
+        fprintf(results->errfile, "... memory contents not equal, found:");
+        for (size_t i = 0; i < n; ++i) {
+            fprintf(results->errfile, " %02x", *(value1 + i));
+        }
+        fprintf(results->errfile, "\n");
         fflush(results->errfile);
         results->num_failed += 1;
     }

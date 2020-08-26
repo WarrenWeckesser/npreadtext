@@ -238,6 +238,29 @@ void test_blocks(test_results *results)
     assert_equal_str(results, data + row_size*(num_rows - 1), "ZZZZZZZZZZZ", "last record is not all 'Z'");
 
     free(data);
+
+    // Interpret each row as 3 fields, each of length 4.  Resize the fields
+    // to length 6.
+    size_t num_fields = 3;
+    size_t new_itemsize = 6;
+    size_t new_row_size = num_fields * new_itemsize;
+    int status = blocks_uniform_resize(b, num_fields, new_itemsize);
+    assert_equal_int(results, status, 0, "blocks_uniform_resize returned a nonzero value");
+    data = blocks_to_contiguous(b, num_rows);
+    assert_equal_mem(results, data, "AAAA\0\0AAAA\0\0AAA\0\0", new_row_size,
+                     "first record of resized blocks is not correct");
+    assert_equal_mem(results, data + new_row_size,
+                     "BBBB\0\0BBBB\0\0BBB\0\0", new_row_size,
+                     "second record of resized blocks is not correct");
+    assert_equal_mem(results, data + new_row_size*9,
+                     "JJJJ\0\0JJJJ\0\0JJJ\0\0", new_row_size,
+                     "tenth record of resized blocks is not correct");
+    assert_equal_mem(results, data + new_row_size*(num_rows - 1),
+                     "ZZZZ\0\0ZZZZ\0\0ZZZ\0\0", new_row_size,
+                     "last record of resized blocks is not correct.");
+
+    free(data);
+
     blocks_destroy(b);
 }
 

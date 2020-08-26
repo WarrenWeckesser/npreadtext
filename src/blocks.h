@@ -20,6 +20,9 @@ blocks_destroy(blocks_data *b);
 char *
 blocks_get_row_ptr(blocks_data *b, size_t k);
 
+int
+blocks_uniform_resize(blocks_data *b, size_t num_fields, size_t new_itemsize);
+
 char *
 blocks_to_contiguous(blocks_data *b, size_t num_rows);
 

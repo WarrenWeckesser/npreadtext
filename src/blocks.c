@@ -103,6 +103,45 @@ blocks_get_row_ptr(blocks_data *b, size_t k)
     return b->block_table[block_number] + block_offset * b->row_size;
 }
 
+//
+// A special resize function, only for data with the same dtype for each
+// field (typically 'S' or 'U').  This function resizes the fields from the
+// current itemsize (b->row_size / num_fields) to the given new_itemsize.
+// The function assumes that new_itemsize is larger than the current itemsize.
+//
+int
+blocks_uniform_resize(blocks_data *b, size_t num_fields, size_t new_itemsize)
+{
+    int current_row_size = b->row_size;
+    int current_itemsize = current_row_size / num_fields;
+    int new_row_size = num_fields * new_itemsize;
+    char **blocks = b->block_table;
+    size_t new_block_size = new_row_size * b->rows_per_block;
+
+    for (int i = 0; i < b->block_table_length; ++i) {
+        char *current_block = blocks[i];
+        if (current_block == NULL) {
+            continue;
+        }
+        char *new_block = calloc(new_block_size, 1);
+        if (new_block == NULL) {
+            // XXX Deal with this... maybe free everything
+            // and return an error code?
+            return -1;
+        }
+        for (size_t row = 0; row < b->rows_per_block; ++row) {
+            for (size_t col = 0; col < num_fields; ++col) {
+                memcpy(new_block + row*new_row_size + col*new_itemsize,
+                       current_block + row*current_row_size + col*current_itemsize,
+                       current_itemsize);
+            }
+        }
+        free(current_block);
+        blocks[i] = new_block;
+    }
+    b->row_size = new_row_size;
+    return 0;
+}
 
 //
 // Copy the first num_rows from the blocks data structure
