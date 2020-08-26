@@ -12,6 +12,7 @@
 #include "../conversions.h"
 #include "../str_to.h"
 #include "../type_inference.h"
+#include "../max_token_len.h"
 
 #include "ctestify.h"
 
@@ -367,6 +368,22 @@ void test_type_inference(test_results *results)
 }
 
 
+void test_max_token_len(test_results *results)
+{
+    size_t max_len;
+
+    char32_t buffer1[] = {10, 20, 30, 0, 40, 0, 50, 60, 0};
+    char32_t *tokens1[] = {buffer1, buffer1+4, buffer1+6};
+    max_len = max_token_len(3, tokens1);
+    assert_equal_int(results, max_len, 3, "incorrect max token length");
+
+    char32_t buffer2[] = {10, 20, 30, 0, 40, 0, 50, 60, 70, 80, 0};
+    char32_t *tokens2[] = {buffer2, buffer2+4, buffer2+6};
+    max_len = max_token_len(3, tokens2);
+    assert_equal_int(results, max_len, 4, "incorrect max token length");
+}
+
+
 int main(int argc, char *argv[])
 {
     test_results results;
@@ -395,6 +412,9 @@ int main(int argc, char *argv[])
 
     printf("test_type_inference\n");
     test_type_inference(&results);
+
+    printf("test_max_token_len\n");
+    test_max_token_len(&results);
 
     printf("### finished running tests\n");
 
