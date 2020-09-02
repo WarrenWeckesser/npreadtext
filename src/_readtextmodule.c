@@ -222,6 +222,10 @@ _readtext_from_stream(stream *s, char *filename, parser_config *pc,
         int num_cols;
         int ndim;
         int num_rows = nrows;
+        bool track_string_size = ((num_dtype_fields == 1) &&
+                                  (ft[0].itemsize == 0) &&
+                                  ((ft[0].typecode == 'S') ||
+                                   (ft[0].typecode == 'U')));
         void *result = read_rows(s, &num_rows, num_fields, ft, pc,
                                  cols, ncols, skiprows, converters,
                                  NULL, &num_cols, &read_error);
@@ -246,12 +250,29 @@ _readtext_from_stream(stream *s, char *filename, parser_config *pc,
             ndim = 1;
             shape[1] = 1;  // Not actually necessary to fill this in.
         }
-        // We have to INCREF dtype, because the Python caller owns a reference,
-        // and PyArray_NewFromDescr steals a reference to it.
-        Py_INCREF(dtype);
-        // XXX Fix memory management - `result` was malloc'd.
-        arr = PyArray_NewFromDescr(&PyArray_Type, (PyArray_Descr *) dtype,
-                                   ndim, shape, NULL, result, 0, NULL);
+        if (track_string_size) {
+            // We need a new dtype for the string/unicode object, since
+            // the input dtype has length 0.
+            PyArray_Descr *dt;
+            if (ft[0].typecode == 'S') {
+                dt =  PyArray_DescrNewFromType(NPY_STRING);
+            }
+            else {
+                dt = PyArray_DescrNewFromType(NPY_UNICODE);
+            }
+            dt->elsize = ft[0].itemsize;
+            // XXX Fix memory management - `result` was malloc'd.
+            arr = PyArray_NewFromDescr(&PyArray_Type, dt,
+                                       ndim, shape, NULL, result, 0, NULL);
+        }
+        else {
+            // We have to INCREF dtype, because the Python caller owns a
+            // reference, and PyArray_NewFromDescr steals a reference to it.
+            Py_INCREF(dtype);
+            // XXX Fix memory management - `result` was malloc'd.
+            arr = PyArray_NewFromDescr(&PyArray_Type, (PyArray_Descr *) dtype,
+                                       ndim, shape, NULL, result, 0, NULL);
+        }
         if (!arr) {
             free(ft);
             free(result);

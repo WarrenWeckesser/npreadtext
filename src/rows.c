@@ -70,6 +70,120 @@ PyObject *call_converter_function(PyObject *func, char32_t *token)
     return result;
 }
 
+/*
+ *  Find the length of the longest token.
+ */
+
+size_t max_token_len(char32_t **tokens, int num_tokens,
+                     int32_t *usecols, int num_usecols)
+{
+    size_t maxlen = 0;
+    for (size_t i = 0; i < num_tokens; ++i) {
+        size_t j;
+        if (usecols == NULL) {
+            j = i;
+        }
+        else {
+            j = usecols[i];
+        }
+        size_t m = strlen32(tokens[j]);
+        if (m > maxlen) {
+            maxlen = m;
+        }
+    }
+    return maxlen;
+}
+
+
+// WIP...
+size_t max_token_len_with_converters(char32_t **tokens, int num_tokens,
+                                     int32_t *usecols, int num_usecols,
+                                     PyObject **conv_funcs)
+{
+    size_t maxlen = 0;
+    size_t m;
+
+    for (size_t i = 0; i < num_tokens; ++i) {
+        size_t j;
+        if (usecols == NULL) {
+            j = i;
+        }
+        else {
+            j = usecols[i];
+        }
+
+        if (conv_funcs && conv_funcs[j]) {
+            PyObject *obj = call_converter_function(conv_funcs[i], tokens[j]);
+            if (obj == NULL) {
+                fprintf(stderr, "CALL FAILED!\n");
+            }
+            // XXX check for obj == NULL!
+            PyObject *s = PyObject_Str(obj);
+            if (s == NULL) {
+                fprintf(stderr, "STR FAILED!\n");
+            }
+            Py_DECREF(obj);
+            // XXX check for s == NULL!
+            Py_ssize_t len = PySequence_Length(s);
+            if (len == -1) {
+                fprintf(stderr, "LEN FAILED!\n");
+            }
+            // XXX check for len == -1
+            Py_DECREF(s);
+            m = (size_t) len;
+        }
+        else {
+            m = strlen32(tokens[j]);
+        }
+        if (m > maxlen) {
+            maxlen = m;
+        }
+    }
+    return maxlen;
+}
+
+
+/*
+ *  Create the array of converter functions from the Python converters dict.
+ */
+PyObject **create_conv_funcs(PyObject *converters, int32_t *usecols, int num_usecols,
+                             int current_num_fields, read_error_type *read_error)
+{
+    PyObject **conv_funcs = NULL;
+    size_t j, k;
+
+    conv_funcs = calloc(num_usecols, sizeof(PyObject *));
+    if (conv_funcs == NULL) {
+        read_error->error_type = ERROR_OUT_OF_MEMORY;
+        return NULL;
+    }
+    for (j = 0; j < num_usecols; ++j) {
+        PyObject *key;
+        PyObject *func;
+        // k is the column index of the field in the file.
+        if (usecols == NULL) {
+            k = j;
+        }
+        else {
+            k = usecols[j];
+        }
+
+        // XXX Check for failure of PyLong_FromSsize_t...
+        key = PyLong_FromSsize_t((Py_ssize_t) k);
+        func = PyDict_GetItem(converters, key);
+        Py_DECREF(key);
+        if (func == NULL) {
+            key = PyLong_FromSsize_t((Py_ssize_t) k - current_num_fields);
+            func = PyDict_GetItem(converters, key);
+            Py_DECREF(key);
+        }
+        if (func != NULL) {
+            Py_INCREF(func);
+            conv_funcs[j] = func;
+        }
+    }
+    return conv_funcs;
+}
 
 /*
  *  XXX Handle errors in any of the functions called by read_rows().
@@ -124,6 +238,8 @@ void *read_rows(stream *s, int *nrows,
     size_t size;
     PyObject **conv_funcs = NULL;
 
+    bool track_string_size = false;
+
     bool use_blocks;
     blocks_data *blks = NULL;
 
@@ -154,6 +270,17 @@ void *read_rows(stream *s, int *nrows,
         }
     }
 
+    // track_string_size will be true if the user passes in
+    // dtype=np.dtype('S') or dtype=np.dtype('U').  That is, the
+    // data type is string or unicode, but a length was not given.
+    // In this case, we must track the maximum length of the fields
+    // and update the actual length for the dtype dynamically as
+    // the file is read.
+    track_string_size = ((num_field_types == 1) &&
+                         (field_types[0].itemsize == 0) &&
+                         ((field_types[0].typecode == 'S') ||
+                          (field_types[0].typecode == 'U')));
+
     row_count = 0;
     while (((*nrows < 0) || (row_count < *nrows)) &&
            (result = tokenize(s, word_buffer, WORD_BUFFER_SIZE, pconfig,
@@ -177,10 +304,6 @@ void *read_rows(stream *s, int *nrows,
                 actual_num_fields = current_num_fields;
             }
 
-            *num_cols = actual_num_fields;
-            row_size = compute_row_size(actual_num_fields,
-                                        num_field_types, field_types);
-
             if (usecols == NULL) {
                 num_usecols = actual_num_fields;
             }
@@ -195,37 +318,35 @@ void *read_rows(stream *s, int *nrows,
             }
 
             if (converters != Py_None) {
-                conv_funcs = calloc(num_usecols, sizeof(PyObject *));
+                conv_funcs = create_conv_funcs(converters, usecols, num_usecols,
+                                               current_num_fields, read_error);
                 if (conv_funcs == NULL) {
-                    read_error->error_type = ERROR_OUT_OF_MEMORY;
                     return NULL;
                 }
-                for (j = 0; j < num_usecols; ++j) {
-                    PyObject *key;
-                    PyObject *func;
-                    // k is the column index of the field in the file.
-                    if (usecols == NULL) {
-                        k = j;
-                    }
-                    else {
-                        k = usecols[j];
-                    }
-
-                    // XXX Check for failure of PyLong_FromSsize_t...
-                    key = PyLong_FromSsize_t((Py_ssize_t) k);
-                    func = PyDict_GetItem(converters, key);
-                    Py_DECREF(key);
-                    if (func == NULL) {
-                        key = PyLong_FromSsize_t((Py_ssize_t) k - current_num_fields);
-                        func = PyDict_GetItem(converters, key);
-                        Py_DECREF(key);
-                    }
-                    if (func != NULL) {
-                        Py_INCREF(func);
-                        conv_funcs[j] = func;
-                    }
-                }
             }
+
+            if (track_string_size) {
+                // typecode must be 'S' or 'U'.
+                // Find the maximum field length in the first line.
+                size_t maxlen;
+                if (converters != Py_None) {
+                    //maxlen = max_token_len_with_converters(result, actual_num_fields,
+                    //                                       usecols, num_usecols,
+                    //                                       conv_funcs);
+                    // XXX WIP--for now, ignore the converters...
+                    maxlen = max_token_len(result, actual_num_fields,
+                                           usecols, num_usecols);
+                }
+                else {
+                    maxlen = max_token_len(result, actual_num_fields,
+                                           usecols, num_usecols);
+                }
+                field_types[0].itemsize = (field_types[0].typecode == 'S') ? maxlen : 4*maxlen;
+            }
+
+            *num_cols = actual_num_fields;
+            row_size = compute_row_size(actual_num_fields,
+                                        num_field_types, field_types);
 
             use_blocks = false;
             if (*nrows < 0) {
@@ -258,6 +379,31 @@ void *read_rows(stream *s, int *nrows,
                 data_ptr = data_array;
             }
         }
+        else {
+            // *Not* the first line...
+            if (track_string_size) {
+                size_t new_itemsize;
+                // typecode must be 'S' or 'U'.
+                // Find the maximum field length in the current line.
+                if (converters != Py_None) {
+                    // XXX Not handled yet.
+                }
+                size_t maxlen = max_token_len(result, actual_num_fields,
+                                              usecols, num_usecols);
+                new_itemsize = (field_types[0].typecode == 'S') ? maxlen : 4*maxlen;
+                if (new_itemsize > field_types[0].itemsize) {
+                    // There is a field in this row whose length is
+                    // more than any previously seen length.
+                    if (use_blocks) {
+                        int status = blocks_uniform_resize(blks, actual_num_fields, new_itemsize);
+                        if (status != 0) {
+                            // XXX Handle this--probably out of memory.
+                        }
+                    }
+                    field_types[0].itemsize = new_itemsize;
+                }
+            }    
+        }
 
         if (!usecols && (actual_num_fields != current_num_fields)) {
             read_error->error_type = ERROR_CHANGED_NUMBER_OF_FIELDS;
@@ -280,11 +426,13 @@ void *read_rows(stream *s, int *nrows,
 
         for (j = 0; j < num_usecols; ++j) {
             int error = ERROR_OK;
+            // f is the index into the field_types array.  If there is only
+            // one field type, it applies to all fields found in the file.
             int f = (num_field_types == 1) ? 0 : j;
             char typecode = field_types[f].typecode;
             PyObject *converted = NULL;
 
-            /* k is the column index of the field in the file. */
+            // k is the column index of the field in the file.
             if (usecols == NULL) {
                 k = j;
             }

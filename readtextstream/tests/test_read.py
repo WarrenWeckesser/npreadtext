@@ -243,6 +243,20 @@ def test_converter_with_structured_dtype():
     assert_equal(a, expected)
 
 
+@pytest.mark.parametrize('dtype, actual_dtype', [('S', np.dtype('S5')),
+                                                 ('U', np.dtype('U5'))])
+def test_string_no_length_given(dtype, actual_dtype):
+    # The given dtype is just 'S' or 'U', with no length.  In these
+    # cases, the length of the resulting dtype is determined by the
+    # longest string found in the file.
+    txt = StringIO('AAA,5-1\nBBBBB,0-3\nC,4-9\n')
+    a = read(txt, dtype=dtype)
+    expected = np.array([['AAA', '5-1'], ['BBBBB', '0-3'], ['C', '4-9']],
+                        dtype=actual_dtype)
+    assert_equal(a.dtype, expected.dtype)
+    assert_equal(a, expected)
+
+
 def test_float_conversion():
     # Some tests that the conversion to float64 works as accurately
     # as the Python built-in `float` function.  In a naive version of

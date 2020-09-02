@@ -110,8 +110,8 @@ def read(file, *, delimiter=',', comment='#', quote='"',
         dtype = np.dtype(dtype)
 
     # FIXME: Temporary hack just to get some loadtxt test to pass!
-    if dtype == np.dtype('U0'):
-        dtype = np.dtype('U32')
+    ##if dtype == np.dtype('U0'):
+    ##    dtype = np.dtype('U32')
 
     if usecols is not None:
         # Allow usecols to be a single int or a sequence of ints
