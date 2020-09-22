@@ -3,7 +3,7 @@
 import pytest
 import numpy as np
 from numpy.testing import assert_array_equal
-from readtextstream._flatten_dtype import flatten_dtype2
+from npreadtext._flatten_dtype import flatten_dtype2
 
 
 @pytest.mark.parametrize('dtype, expected_codes, expected_sizes', [

@@ -7,14 +7,14 @@ def configuration(parent_package='', top_path=None):
 
     config = Configuration(None, parent_package, top_path)
     # config.add_data_dir('tests')
-    config.add_subpackage('readtextstream')
+    config.add_subpackage('npreadtext')
     cfiles = ['_readtextmodule.c', 'analyze.c', 'type_inference.c',
               'rows.c', 'tokenize.c',
               'conversions.c', 'str_to.c', 'str_to_int.c', 'str_to_double.c',
               'pow10table.c',
               'stream_file.c', 'stream_python_file_by_line.c', 'blocks.c',
               'char32utils.c', 'field_types.c', 'dtoa_modified.c']
-    config.add_extension('readtextstream._readtextmodule',
+    config.add_extension('npreadtext._readtextmodule',
                          sources=[path.join('src', t) for t in cfiles])
     return config
 

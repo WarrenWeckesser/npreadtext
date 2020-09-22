@@ -2,7 +2,7 @@
 import argparse
 import textwrap
 import numpy as np
-from readtextstream import read
+from npreadtext import read
 
 
 def _loadtxt(*args, **kwds):

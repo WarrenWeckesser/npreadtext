@@ -3,7 +3,7 @@ from io import StringIO
 import pytest
 import numpy as np
 from numpy.testing import assert_array_equal, assert_equal
-from readtextstream import read
+from npreadtext import read
 
 
 def _get_full_name(basename):
